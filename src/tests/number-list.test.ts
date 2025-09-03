@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert'
-import NumberList from './number-list.ts'
+import NumberList from '../number-list.ts'
 
 Deno.test('NumberList - basic push and pop', () => {
 	const list = new NumberList()

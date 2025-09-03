@@ -1,6 +1,6 @@
 import { assertEquals, assertExists, assertObjectMatch } from '@std/assert'
 
-import StringTable from './string-table.ts'
+import StringTable from '../string-table.ts'
 
 Deno.test('StringTable - add new string', () => {
 	const table = new StringTable()

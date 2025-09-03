@@ -1,5 +1,5 @@
 import { assertEquals, assertNotEquals } from '@std/assert'
-import BitSet from './bitset.ts'
+import BitSet from '../bitset.ts'
 
 Deno.test('BitSet: constructor initializes correctly', () => {
 	const bs = new BitSet()
