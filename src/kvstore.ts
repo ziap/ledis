@@ -2,6 +2,9 @@ import NumberList from './number-list.ts'
 import StringTable from './string-table.ts'
 import BitSet from './bitset.ts'
 
+import * as serialize from './serialize.ts'
+import { assertNever } from './utils.ts'
+
 class Expiry {
 	constructor(
 		public expireTime: number,
@@ -18,9 +21,9 @@ class KVEntry {
 }
 
 export default class KVStore {
-	stringTable = new StringTable()
-	data = new Array<KVEntry>()
-	heap = new NumberList()
+	private stringTable = new StringTable()
+	private data = new Array<KVEntry>()
+	private heap = new NumberList()
 
 	private getEntry(key: string): KVEntry {
 		const idx = this.stringTable.stringToIndex(key)
@@ -162,7 +165,7 @@ export default class KVStore {
 			return
 		}
 
-		const _: never = value
+		assertNever(value)
 	}
 
 	expireKey(key: string, seconds: number): void {
@@ -175,9 +178,10 @@ export default class KVStore {
 		const entry = this.data[idx]
 
 		if (entry.expiry === null) {
-			entry.expiry = new Expiry(expireTime, this.heap.len)
+			const heapIdx = this.heap.len
+			entry.expiry = new Expiry(expireTime, heapIdx)
 			this.heap.push(idx)
-			this.siftUp(this.heap.len - 1)
+			this.siftUp(heapIdx)
 		} else {
 			const oldExpireTime = entry.expiry.expireTime
 			entry.expiry.expireTime = expireTime
@@ -284,6 +288,17 @@ export default class KVStore {
 		throw new Error('Key holds a value that is not a list')
 	}
 
+	private addSetItem(item: string, set: BitSet) {
+		const idx = this.stringTable.stringToIndex(item)
+		if (idx === null) {
+			set.add(this.stringTable.add(item))
+		} else {
+			if (!set.add(idx)) {
+				this.stringTable.add(item)
+			}
+		}
+	}
+
 	addSet(key: string, values: string[]): void {
 		this.clearExpired()
 		const entry = this.addEntry(key)
@@ -294,7 +309,7 @@ export default class KVStore {
 
 			if (value instanceof BitSet) {
 				for (const item of values) {
-					value.add(this.stringTable.add(item))
+					this.addSetItem(item, value)
 				}
 			} else {
 				throw new Error('Key holds a value that is not a set')
@@ -305,7 +320,7 @@ export default class KVStore {
 
 		entry.value = new BitSet()
 		for (const item of values) {
-			entry.value.add(this.stringTable.add(item))
+			this.addSetItem(item, entry.value)
 		}
 	}
 
@@ -404,5 +419,117 @@ export default class KVStore {
 
 		if (entry.expiry === null) return null
 		return entry.expiry.expireTime - currentTime
+	}
+
+	serialize(): serialize.KVStore {
+		const result: serialize.KVStore = {
+			stringTable: this.stringTable.serialize(),
+			data: [],
+		}
+
+		for (const entry of this.data) {
+			const value = entry.value
+			const expireTime = entry.expiry?.expireTime
+
+			if (value === null) {
+				result.data.push({
+					value: null,
+					expireTime,
+				})
+
+				continue
+			}
+
+			if (typeof value === 'number') {
+				result.data.push({
+					value: {
+						kind: 'string',
+						data: value,
+					},
+					expireTime,
+				})
+
+				continue
+			}
+
+			if (value instanceof NumberList) {
+				result.data.push({
+					value: {
+						kind: 'list',
+						data: Array.from(value.view()),
+					},
+					expireTime,
+				})
+
+				continue
+			}
+
+			if (value instanceof BitSet) {
+				const data = value.items()
+
+				result.data.push({
+					value: {
+						kind: 'set',
+						data: Array.from(data),
+					},
+					expireTime,
+				})
+
+				continue
+			}
+
+			assertNever(value)
+		}
+
+		return result
+	}
+
+	static deserialize(data: serialize.KVStore): KVStore {
+		const result = new KVStore()
+		result.stringTable = StringTable.deserialize(data.stringTable)
+
+		for (let i = 0; i < data.data.length; ++i) {
+			const item = data.data[i]
+			const value = item.value
+			let entry: KVEntry
+			switch (value?.kind) {
+				case 'string':
+					{
+						entry = new KVEntry(value.data)
+					}
+					break
+				case 'list':
+					{
+						const list = new NumberList(value.data)
+						entry = new KVEntry(list)
+					}
+					break
+				case 'set':
+					{
+						const set = new BitSet()
+						for (const x of value.data) set.add(x)
+						entry = new KVEntry(set)
+					}
+					break
+				case undefined:
+					{
+						entry = new KVEntry(null)
+					}
+					break
+				default:
+					assertNever(value)
+			}
+
+			result.data.push(entry)
+
+			if (item.expireTime !== undefined) {
+				const heapIdx = result.heap.len
+				entry.expiry = new Expiry(item.expireTime, heapIdx)
+				result.heap.push(i)
+				result.siftUp(heapIdx)
+			}
+		}
+
+		return result
 	}
 }

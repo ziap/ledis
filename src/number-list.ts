@@ -1,6 +1,14 @@
 export default class NumberList {
-	private data = new Uint32Array(4)
-	len = 0
+	private data: Uint32Array
+	len: number
+
+	constructor(values: number[] = []) {
+		const len = values.length
+		const capacity = Math.max(1 << (32 - Math.clz32(len - 1)), 4)
+		this.data = new Uint32Array(capacity)
+		this.data.set(values)
+		this.len = len
+	}
 
 	push(value: number) {
 		if (this.data.length === this.len) {

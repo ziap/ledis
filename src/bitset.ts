@@ -1,10 +1,9 @@
-// TODO: Reduce memory usage using Roaring Bitmap
 export default class BitSet {
 	constructor(
 		private data = new Uint32Array(4),
 	) {}
 
-	add(value: number): void {
+	add(value: number): boolean {
 		const idx = value >> 5
 		if (this.data.length <= idx) {
 			const oldData = this.data
@@ -12,7 +11,10 @@ export default class BitSet {
 			this.data.set(oldData)
 		}
 
-		this.data[idx] |= 1 << (value & 31)
+		const bit = 1 << (value & 31)
+		const set = (this.data[idx] & bit) !== 0
+		this.data[idx] |= bit
+		return set
 	}
 
 	delete(value: number): boolean {

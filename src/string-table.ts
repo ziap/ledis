@@ -1,4 +1,5 @@
 import NumberList from './number-list.ts'
+import * as serialize from './serialize.ts'
 
 class StringTableEntry {
 	refcount = 1
@@ -56,5 +57,43 @@ export default class StringTable {
 			entry.value = ''
 			this.freeIndices.push(idx)
 		}
+	}
+
+	serialize(): serialize.StringTable {
+		const result: serialize.StringTable = new Array(this.values.length)
+		for (let i = 0; i < this.values.length; ++i) {
+			if (this.values[i].refcount > 0) {
+				result[i] = {
+					value: this.values[i].value,
+					refcount: this.values[i].refcount,
+				}
+			} else {
+				result[i] = null
+			}
+		}
+
+		return result
+	}
+
+	static deserialize(data: serialize.StringTable): StringTable {
+		const result = new StringTable()
+		for (let i = 0; i < data.length; ++i) {
+			const item = data[i]
+
+			if (item === null) {
+				const entry = new StringTableEntry('')
+				entry.refcount = 0
+
+				result.values.push(entry)
+				result.freeIndices.push(i)
+			} else {
+				const entry = new StringTableEntry(item.value)
+				entry.refcount = item.refcount
+
+				result.values.push(entry)
+				result.index.set(item.value, i)
+			}
+		}
+		return result
 	}
 }

@@ -187,31 +187,31 @@ Deno.test('KVStore: stringTable cleanup on delete', () => {
 	kv.delete('key2')
 	kv.delete('key3')
 
-	const size = kv.stringTable['values'].length
+	const size = kv['stringTable']['values'].length
 
 	// The string table should be smaller after deleting keys and their values
 	// Exact count is hard to assert without internal knowledge of StringTable.
 	// We can at least check that the keys themselves are gone from StringTable.
-	assertEquals(kv.stringTable.stringToIndex('key1'), null)
-	assertEquals(kv.stringTable.stringToIndex('value1'), null)
-	assertEquals(kv.stringTable.stringToIndex('key2'), null)
-	assertEquals(kv.stringTable.stringToIndex('item1'), null)
-	assertEquals(kv.stringTable.stringToIndex('item2'), null)
-	assertEquals(kv.stringTable.stringToIndex('key3'), null)
-	assertEquals(kv.stringTable.stringToIndex('setitem1'), null)
-	assertEquals(kv.stringTable.stringToIndex('setitem2'), null)
+	assertEquals(kv['stringTable'].stringToIndex('key1'), null)
+	assertEquals(kv['stringTable'].stringToIndex('value1'), null)
+	assertEquals(kv['stringTable'].stringToIndex('key2'), null)
+	assertEquals(kv['stringTable'].stringToIndex('item1'), null)
+	assertEquals(kv['stringTable'].stringToIndex('item2'), null)
+	assertEquals(kv['stringTable'].stringToIndex('key3'), null)
+	assertEquals(kv['stringTable'].stringToIndex('setitem1'), null)
+	assertEquals(kv['stringTable'].stringToIndex('setitem2'), null)
 
 	// The string table correctly clean up all strings and mark them for reuse
-	assertEquals(kv.stringTable['freeIndices'].len, size)
+	assertEquals(kv['stringTable']['freeIndices'].len, size)
 })
 
 Deno.test('KVStore: deleting a key with expiry removes it from heap', async () => {
 	const kv = new KVStore()
 	kv.setString('key1', 'value1')
 	kv.expireKey('key1', 1)
-	assertEquals(kv.heap.len, 1) // Key should be in heap
+	assertEquals(kv['heap'].len, 1) // Key should be in heap
 	kv.delete('key1')
-	assertEquals(kv.heap.len, 0) // Key should be removed from heap
+	assertEquals(kv['heap'].len, 0) // Key should be removed from heap
 	await delay(1100) // Ensure clearExpired won't find it
 	assertEquals(kv.keys().length, 0)
 })
@@ -318,7 +318,11 @@ Deno.test('KVStore: expireKey on a non-existent key throws an error', () => {
 		'Key does not exists',
 		'expireKey should throw an error for a non-existent key',
 	)
-	assertEquals(kv.heap.len, 0, 'Heap should remain empty if key did not exist')
+	assertEquals(
+		kv['heap'].len,
+		0,
+		'Heap should remain empty if key did not exist',
+	)
 })
 
 Deno.test('KVStore: ttl on a key without expiry returns null', () => {
@@ -335,4 +339,189 @@ Deno.test('KVStore: ttl on a key without expiry returns null', () => {
 		null,
 		'TTL for a non-expiring list key should be null',
 	)
+})
+
+Deno.test('KVStore: serialize and deserialize an empty store', () => {
+	const kv = new KVStore()
+	const serialized = kv.serialize()
+	const deserializedKv = KVStore.deserialize(serialized)
+
+	assertEquals(deserializedKv.keys(), [])
+	assertEquals(deserializedKv['stringTable']['values'].length, 0)
+	assertEquals(deserializedKv['heap'].len, 0)
+})
+
+Deno.test('KVStore: serialize/deserialize with string values', () => {
+	const kv = new KVStore()
+	kv.setString('name', 'Deno')
+	kv.setString('greeting', 'Hello World')
+
+	const serialized = kv.serialize()
+	const deserializedKv = KVStore.deserialize(serialized)
+
+	assertEquals(deserializedKv.getString('name'), 'Deno')
+	assertEquals(deserializedKv.getString('greeting'), 'Hello World')
+	assertEquals(deserializedKv.keys().sort(), ['greeting', 'name'].sort())
+})
+
+Deno.test('KVStore: serialize/deserialize with list values', () => {
+	const kv = new KVStore()
+	kv.pushArray('myList', ['a', 'b', 'c'])
+	kv.pushArray('anotherList', ['x', 'y'])
+
+	const serialized = kv.serialize()
+	const deserializedKv = KVStore.deserialize(serialized)
+
+	assertEquals(deserializedKv.sliceArray('myList', 0, 2), ['a', 'b', 'c'])
+	assertEquals(deserializedKv.sliceArray('anotherList', 0, 1), ['x', 'y'])
+	assertEquals(deserializedKv.keys().sort(), ['anotherList', 'myList'].sort())
+})
+
+Deno.test('KVStore: serialize/deserialize with set values', () => {
+	const kv = new KVStore()
+	kv.addSet('mySet', ['apple', 'banana'])
+	kv.addSet('anotherSet', ['red', 'green'])
+
+	const serialized = kv.serialize()
+	const deserializedKv = KVStore.deserialize(serialized)
+
+	assertEquals(
+		deserializedKv.getSet('mySet').sort(),
+		['apple', 'banana'].sort(),
+	)
+	assertEquals(
+		deserializedKv.getSet('anotherSet').sort(),
+		['green', 'red'].sort(),
+	)
+	assertEquals(deserializedKv.keys().sort(), ['anotherSet', 'mySet'].sort())
+})
+
+Deno.test('KVStore: serialize/deserialize with mixed data types', () => {
+	const kv = new KVStore()
+	kv.setString('strKey', 'stringValue')
+	kv.pushArray('listKey', ['listVal1', 'listVal2'])
+	kv.addSet('setKey', ['setValA', 'setValB'])
+
+	const serialized = kv.serialize()
+	const deserializedKv = KVStore.deserialize(serialized)
+
+	assertEquals(deserializedKv.getString('strKey'), 'stringValue')
+	assertEquals(deserializedKv.sliceArray('listKey', 0, 1), [
+		'listVal1',
+		'listVal2',
+	])
+	assertEquals(
+		deserializedKv.getSet('setKey').sort(),
+		['setValA', 'setValB'].sort(),
+	)
+	assertEquals(
+		deserializedKv.keys().sort(),
+		['listKey', 'setKey', 'strKey'].sort(),
+	)
+})
+
+Deno.test('KVStore: serialize/deserialize with expiry preserving heap invariant', async () => {
+	const kv = new KVStore()
+	kv.setString('key1', 'value1')
+	kv.expireKey('key1', 3) // Expires in 3 seconds
+
+	kv.setString('key2', 'value2')
+	kv.expireKey('key2', 1) // Expires in 1 second
+
+	kv.setString('key3', 'value3')
+	kv.expireKey('key3', 2) // Expires in 2 seconds
+
+	// Capture initial TTLs (approximate)
+	const initialTtl1 = kv.ttl('key1')
+	const initialTtl2 = kv.ttl('key2')
+	const initialTtl3 = kv.ttl('key3')
+
+	assert(initialTtl1 !== null && initialTtl1 > 2.5)
+	assert(initialTtl2 !== null && initialTtl2 > 0.5)
+	assert(initialTtl3 !== null && initialTtl3 > 1.5)
+
+	const serialized = kv.serialize()
+	const deserializedKv = KVStore.deserialize(serialized)
+
+	// Verify data
+	assertEquals(deserializedKv.getString('key1'), 'value1')
+	assertEquals(deserializedKv.getString('key2'), 'value2')
+	assertEquals(deserializedKv.getString('key3'), 'value3')
+
+	// Verify TTLs are still decreasing as expected
+	const deserializedTtl1 = deserializedKv.ttl('key1')
+	const deserializedTtl2 = deserializedKv.ttl('key2')
+	const deserializedTtl3 = deserializedKv.ttl('key3')
+
+	// TTLs should be close to their original values (minus time taken for serialization/deserialization)
+	assert(deserializedTtl1 !== null && deserializedTtl1 <= initialTtl1!)
+	assert(deserializedTtl2 !== null && deserializedTtl2 <= initialTtl2!)
+	assert(deserializedTtl3 !== null && deserializedTtl3 <= initialTtl3!)
+
+	// Advance time to check expiry order
+	await delay(1100) // key2 should expire
+
+	// An operation on deserializedKv should trigger clearExpired
+	deserializedKv.setString('tempKey', 'tempValue')
+
+	assertEquals(deserializedKv.ttl('key2'), null)
+	assertThrows(() => deserializedKv.getString('key2'))
+	assertEquals(deserializedKv.keys().sort(), ['key1', 'key3', 'tempKey'].sort())
+
+	await delay(1000) // key3 should expire
+
+	deserializedKv.setString('anotherTemp', 'anotherValue')
+
+	assertEquals(deserializedKv.ttl('key3'), null)
+	assertThrows(() => deserializedKv.getString('key3'))
+	assertEquals(
+		deserializedKv.keys().sort(),
+		['key1', 'anotherTemp', 'tempKey'].sort(),
+	)
+
+	await delay(1000) // key1 should expire
+
+	deserializedKv.setString('finalTemp', 'finalValue')
+
+	assertEquals(deserializedKv.ttl('key1'), null)
+	assertThrows(() => deserializedKv.getString('key1'))
+	assertEquals(
+		deserializedKv.keys().sort(),
+		['anotherTemp', 'finalTemp', 'tempKey'].sort(),
+	)
+})
+
+Deno.test('KVStore: serialize/deserialize with a key that had expiry but was deleted', () => {
+	const kv = new KVStore()
+	kv.setString('key1', 'value1')
+	kv.expireKey('key1', 1)
+	kv.delete('key1') // Delete before serializing
+
+	const serialized = kv.serialize()
+	const deserializedKv = KVStore.deserialize(serialized)
+
+	assertThrows(() => deserializedKv.getString('key1'))
+	assertEquals(deserializedKv.keys().length, 0)
+	assertEquals(deserializedKv['heap'].len, 0)
+})
+
+Deno.test('KVStore: stringTable consistency after serialize/deserialize', () => {
+	const kv = new KVStore()
+	kv.setString('k1', 'v1')
+	kv.pushArray('k2', ['a', 'b'])
+	kv.addSet('k3', ['x', 'y'])
+	kv.setString('k4', 'v1') // 'v1' is reused
+
+	const serialized = kv.serialize()
+	const deserializedKv = KVStore.deserialize(serialized)
+
+	// Check if string table indices are consistent for retrieval
+	assertEquals(deserializedKv.getString('k1'), 'v1')
+	assertEquals(deserializedKv.getString('k4'), 'v1')
+	assertEquals(deserializedKv.sliceArray('k2', 0, 1), ['a', 'b'])
+	assertEquals(deserializedKv.getSet('k3').sort(), ['x', 'y'].sort())
+
+	// Add new string to verify stringTable reuse works
+	deserializedKv.setString('k5', 'new_value')
+	assertEquals(deserializedKv.getString('k5'), 'new_value')
 })
