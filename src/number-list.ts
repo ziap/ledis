@@ -1,5 +1,5 @@
 export default class NumberList {
-	data = new Uint32Array(4)
+	private data = new Uint32Array(4)
 	len = 0
 
 	push(value: number) {
@@ -19,5 +19,9 @@ export default class NumberList {
 		this.len -= 1
 		const value = this.data[this.len]
 		return value
+	}
+
+	view(): Uint32Array {
+		return this.data.subarray(0, this.len)
 	}
 }

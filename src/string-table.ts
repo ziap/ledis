@@ -9,9 +9,9 @@ class StringTableEntry {
 }
 
 export default class StringTable {
-	index = new Map<string, number>()
-	values = new Array<StringTableEntry>()
-	freeIndices = new NumberList()
+	private index = new Map<string, number>()
+	private values = new Array<StringTableEntry>()
+	private freeIndices = new NumberList()
 
 	add(value: string): number {
 		const idx = this.index.get(value)

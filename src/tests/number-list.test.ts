@@ -31,16 +31,16 @@ Deno.test('NumberList - multiple pushes and pops', () => {
 
 Deno.test('NumberList - growth mechanism', () => {
 	const list = new NumberList()
-	const initialCapacity = list.data.length
+	const initialCapacity = list['data'].length
 	for (let i = 0; i < initialCapacity; i++) {
 		list.push(i)
 	}
 	assertEquals(list.len, initialCapacity)
-	assertEquals(list.data.length, initialCapacity)
+	assertEquals(list['data'].length, initialCapacity)
 
 	list.push(initialCapacity) // This should trigger growth
 	assertEquals(list.len, initialCapacity + 1)
-	assertEquals(list.data.length, initialCapacity * 2) // Check if capacity doubled
+	assertEquals(list['data'].length, initialCapacity * 2) // Check if capacity doubled
 
 	for (let i = 0; i < initialCapacity + 1; ++i) {
 		assertEquals(list.pop(), initialCapacity - i) // Pop in reverse order

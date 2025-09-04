@@ -187,7 +187,7 @@ Deno.test('KVStore: stringTable cleanup on delete', () => {
 	kv.delete('key2')
 	kv.delete('key3')
 
-	const size = kv.stringTable.values.length
+	const size = kv.stringTable['values'].length
 
 	// The string table should be smaller after deleting keys and their values
 	// Exact count is hard to assert without internal knowledge of StringTable.
@@ -202,7 +202,7 @@ Deno.test('KVStore: stringTable cleanup on delete', () => {
 	assertEquals(kv.stringTable.stringToIndex('setitem2'), null)
 
 	// The string table correctly clean up all strings and mark them for reuse
-	assertEquals(kv.stringTable.freeIndices.len, size)
+	assertEquals(kv.stringTable['freeIndices'].len, size)
 })
 
 Deno.test('KVStore: deleting a key with expiry removes it from heap', async () => {

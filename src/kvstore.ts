@@ -52,34 +52,34 @@ export default class KVStore {
 	}
 
 	private siftUp(idx: number) {
-		const val = this.heap.data[idx]
+		const val = this.heap.view()[idx]
 
 		let p = (idx - 1) >> 1
-		let pVal = this.heap.data[p]
+		let pVal = this.heap.view()[p]
 		while (idx > 0 && !this.heapCmp(pVal, val)) {
-			this.heap.data[idx] = pVal
+			this.heap.view()[idx] = pVal
 			const expiry = this.data[pVal].expiry
 			if (expiry === null) throw new Error('Implementation error')
 			expiry.heapPosition = idx
 
 			idx = p
 			p = (idx - 1) >> 1
-			pVal = this.heap.data[p]
+			pVal = this.heap.view()[p]
 		}
 
-		this.heap.data[idx] = val
+		this.heap.view()[idx] = val
 		const expiry = this.data[val].expiry
 		if (expiry === null) throw new Error('Implementation error')
 		expiry.heapPosition = idx
 	}
 
 	private siftDown(idx: number) {
-		const val = this.heap.data[idx]
+		const val = this.heap.view()[idx]
 		let childIdx = (idx << 1) | 1
 		while (childIdx < this.heap.len) {
-			let childVal = this.heap.data[childIdx]
+			let childVal = this.heap.view()[childIdx]
 			if (childIdx + 1 < this.heap.len) {
-				const otherVal = this.heap.data[childIdx + 1]
+				const otherVal = this.heap.view()[childIdx + 1]
 				if (this.heapCmp(otherVal, childVal)) {
 					childIdx += 1
 					childVal = otherVal
@@ -88,7 +88,7 @@ export default class KVStore {
 
 			if (this.heapCmp(val, childVal)) break
 
-			this.heap.data[idx] = childVal
+			this.heap.view()[idx] = childVal
 			const expiry = this.data[childVal].expiry
 			if (expiry === null) throw new Error('Implementation error')
 			expiry.heapPosition = idx
@@ -97,14 +97,14 @@ export default class KVStore {
 			childIdx = (idx << 1) | 1
 		}
 
-		this.heap.data[idx] = val
+		this.heap.view()[idx] = val
 		const expiry = this.data[val].expiry
 		if (expiry === null) throw new Error('Implementation error')
 		expiry.heapPosition = idx
 	}
 
 	private removeFromHeap(heapPos: number): void {
-		const itemToRemoveIdx = this.heap.data[heapPos]
+		const itemToRemoveIdx = this.heap.view()[heapPos]
 		const lastHeapItemIdx = this.heap.pop()
 
 		if (lastHeapItemIdx === null) {
@@ -112,7 +112,7 @@ export default class KVStore {
 		}
 
 		if (heapPos < this.heap.len) {
-			this.heap.data[heapPos] = lastHeapItemIdx
+			this.heap.view()[heapPos] = lastHeapItemIdx
 			const movedEntry = this.data[lastHeapItemIdx]
 			if (movedEntry.expiry === null) throw new Error('Implementation error')
 			movedEntry.expiry.heapPosition = heapPos
@@ -147,7 +147,7 @@ export default class KVStore {
 		}
 
 		if (value instanceof NumberList) {
-			for (const item of value.data.subarray(0, value.len)) {
+			for (const item of value.view()) {
 				const itemString = this.stringTable.indexToString(item)
 				this.stringTable.delete(itemString)
 			}
@@ -193,7 +193,7 @@ export default class KVStore {
 	private clearExpired(): void {
 		const currentTime = Date.now() / 1000
 		while (this.heap.len > 0) {
-			const top = this.heap.data[0]
+			const top = this.heap.view()[0]
 			const expiry = this.data[top].expiry
 			if (expiry === null) throw new Error('Implementation error')
 			if (expiry.expireTime > currentTime) break
@@ -275,7 +275,7 @@ export default class KVStore {
 			const resultLen = end - start + 1
 			const result = new Array<string>(resultLen)
 			for (let i = 0; i < resultLen; ++i) {
-				const item = value.data[i + start]
+				const item = value.view()[i + start]
 				result[i] = this.stringTable.indexToString(item)
 			}
 			return result
