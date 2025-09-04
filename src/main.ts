@@ -1,9 +1,10 @@
 import NumberList from './number-list.ts'
 import StringTable from './string-table.ts'
+import BitSet from './bitset.ts'
 
 class KVEntry {
 	constructor(
-		public value: number | NumberList | null,
+		public value: number | NumberList | BitSet | null,
 	) {}
 }
 
@@ -39,26 +40,31 @@ class KVStore {
 		throw new Error('Not implemented')
 	}
 
-	setString(key: string, value: string): void {
-		const idx = this.stringTable.add(key)
-		this.delete(key)
-		while (this.data.length <= idx) {
-			this.data.push(new KVEntry(null))
-		}
-		this.data[idx].value = this.stringTable.add(value)
-	}
-
-	getString(key: string): string {
+	getEntry(key: string): KVEntry {
 		const idx = this.stringTable.stringToIndex(key)
 		if (idx === null || idx >= this.data.length) {
 			throw new Error('Key does not exists')
 		}
-		const entry = this.data[idx]
+		return this.data[idx]
+	}
 
-		const value = entry.value
-		if (value === null) {
-			throw new Error('Key does not exists')
+	addEntry(key: string): KVEntry {
+		const idx = this.stringTable.add(key)
+		while (this.data.length <= idx) {
+			this.data.push(new KVEntry(null))
 		}
+		return this.data[idx]
+	}
+
+	setString(key: string, value: string): void {
+		const entry = this.addEntry(key)
+		this.delete(key)
+		entry.value = this.stringTable.add(value)
+	}
+
+	getString(key: string): string {
+		const entry = this.getEntry(key)
+		const value = entry.value
 
 		if (typeof value === 'number') {
 			const valueString = this.stringTable.indexToString(value)
@@ -72,13 +78,7 @@ class KVStore {
 	}
 
 	pushArray(key: string, values: string[]): void {
-		const idx = this.stringTable.add(key)
-
-		while (this.data.length <= idx) {
-			this.data.push(new KVEntry(null))
-		}
-
-		const entry = this.data[idx]
+		const entry = this.addEntry(key)
 		const value = entry.value
 
 		if (value !== null) {
@@ -102,16 +102,8 @@ class KVStore {
 	}
 
 	popArray(key: string): string | null {
-		const idx = this.stringTable.stringToIndex(key)
-		if (idx === null || idx >= this.data.length) {
-			throw new Error('Key does not exists')
-		}
-		const entry = this.data[idx]
-
+		const entry = this.getEntry(key)
 		const value = entry.value
-		if (value === null) {
-			throw new Error('Key does not exists')
-		}
 
 		if (value instanceof NumberList) {
 			const item = value.pop()
@@ -125,17 +117,9 @@ class KVStore {
 		throw new Error('Key holds a value that is not a list')
 	}
 
-	sliceArray(key: string, start: number, end: number) {
-		const idx = this.stringTable.stringToIndex(key)
-		if (idx === null || idx >= this.data.length) {
-			throw new Error('Key does not exists')
-		}
-		const entry = this.data[idx]
-
+	sliceArray(key: string, start: number, end: number): string[] {
+		const entry = this.getEntry(key)
 		const value = entry.value
-		if (value === null) {
-			throw new Error('Key does not exists')
-		}
 
 		if (value instanceof NumberList) {
 			if (start < 0 || end >= value.len) throw new Error('Index out of bound')
@@ -151,6 +135,103 @@ class KVStore {
 		}
 
 		throw new Error('Key holds a value that is not a list')
+	}
+
+	addSet(key: string, values: string[]): void {
+		const entry = this.addEntry(key)
+		const value = entry.value
+
+		if (value !== null) {
+			this.stringTable.delete(key)
+
+			if (value instanceof BitSet) {
+				for (const item of values) {
+					value.add(this.stringTable.add(item))
+				}
+			} else {
+				throw new Error('Key holds a value that is not a set')
+			}
+
+			return
+		}
+
+		entry.value = new BitSet()
+		for (const item of values) {
+			entry.value.add(this.stringTable.add(item))
+		}
+	}
+
+	removeSet(key: string, values: string[]): void {
+		const entry = this.getEntry(key)
+		const value = entry.value
+
+		if (value instanceof BitSet) {
+			for (const item of values) {
+				const idx = this.stringTable.stringToIndex(item)
+				if (idx !== null && value.delete(idx)) {
+					this.stringTable.delete(item)
+				}
+			}
+
+			return
+		}
+
+		throw new Error('Key holds a value that is not a set')
+	}
+
+	itemsToStrings(items: Uint32Array): string[] {
+		const result = new Array<string>(items.length)
+
+		for (let i = 0; i < items.length; ++i) {
+			const item = items[i]
+			const itemString = this.stringTable.indexToString(item)
+			if (itemString === null) throw new Error('Implementation error')
+			result[i] = itemString
+		}
+
+		return result
+	}
+
+	getSet(key: string): string[] {
+		const entry = this.getEntry(key)
+		const value = entry.value
+
+		if (value instanceof BitSet) {
+			const items = value.items()
+			return this.itemsToStrings(items)
+		}
+
+		throw new Error('Key holds a value that is not a set')
+	}
+
+	collectSets(keys: string[]): BitSet[] {
+		const sets = new Array<BitSet>(keys.length)
+
+		for (let i = 0; i < keys.length; ++i) {
+			const key = keys[i]
+			const entry = this.getEntry(key)
+			const value = entry.value
+
+			if (value instanceof BitSet) {
+				sets[i] = value
+			} else {
+				throw new Error(`Key '${key}' holds a value that is not a set`)
+			}
+		}
+
+		return sets
+	}
+
+	unionSet(keys: string[]) {
+		const sets = this.collectSets(keys)
+		const items = BitSet.union(sets).items()
+		return this.itemsToStrings(items)
+	}
+
+	intersectSet(keys: string[]) {
+		const sets = this.collectSets(keys)
+		const items = BitSet.intersect(sets).items()
+		return this.itemsToStrings(items)
 	}
 }
 
@@ -169,4 +250,7 @@ console.log(store.popArray('hello'))
 console.log(store.popArray('hello'))
 console.log(store.stringTable.values)
 store.delete('hello')
-console.log(store.stringTable.values)
+store.addSet('set1', ['apple', 'orange', 'banana'])
+store.addSet('set2', ['google', 'microsoft', 'apple'])
+console.log(store.intersectSet(['set1', 'set2']))
+console.log(store.unionSet(['set1', 'set2']))

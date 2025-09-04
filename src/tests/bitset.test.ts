@@ -62,26 +62,26 @@ Deno.test('BitSet: delete works for various values', () => {
 	assertEquals(bs.count(), 4)
 
 	// Delete an existing value
-	bs.delete(5)
+	assertEquals(bs.delete(5), true)
 	assertEquals(bs['data'][0], 1) // Only bit 0 remains
 	assertEquals(bs.count(), 3)
 
 	// Delete a non-existent value (should do nothing)
-	bs.delete(10)
+	assertEquals(bs.delete(10), false)
 	assertEquals(bs.count(), 3)
 
 	// Delete a value from a word that doesn't exist yet (beyond capacity)
-	bs.delete(2000) // idx = 2000 >> 5 = 62. Current array length is 64. So this is within bounds
+	assertEquals(bs.delete(2000), false) // idx = 2000 >> 5 = 62. Current array length is 64. So this is within bounds
 	assertEquals(bs.count(), 3)
 
 	// Delete the last remaining bit in a word
-	bs.delete(0)
+	assertEquals(bs.delete(0), true)
 	assertEquals(bs['data'][0], 0)
 	assertEquals(bs.count(), 2)
 
 	// Delete a value that would be in an index beyond the current data array length
 	const initialLength = bs['data'].length
-	bs.delete(initialLength * 32 + 5) // Some value far beyond current capacity
+	assertEquals(bs.delete(initialLength * 32 + 5), false) // Some value far beyond current capacity
 	assertEquals(bs['data'].length, initialLength) // Should not change length or throw
 })
 

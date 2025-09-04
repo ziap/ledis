@@ -15,10 +15,12 @@ export default class BitSet {
 		this.data[idx] |= 1 << (value & 31)
 	}
 
-	delete(value: number): void {
+	delete(value: number): boolean {
 		const idx = value >> 5
-		if (this.data.length <= idx) return
-		this.data[idx] &= ~(1 << (value & 31))
+		if (this.data.length <= idx) return false
+		const bit = this.data[idx] & (1 << (value & 31))
+		this.data[idx] ^= bit
+		return bit !== 0
 	}
 
 	count(): number {
