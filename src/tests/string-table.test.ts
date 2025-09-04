@@ -39,7 +39,6 @@ Deno.test('StringTable - stringToIndex and indexToString', () => {
 
 	assertEquals(table.indexToString(0), 'apple')
 	assertEquals(table.indexToString(1), 'banana')
-	assertEquals(table.indexToString(99), null)
 })
 
 Deno.test('StringTable - delete string decrements refcount', () => {

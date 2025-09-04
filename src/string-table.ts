@@ -40,8 +40,8 @@ export default class StringTable {
 		return this.index.get(value) ?? null
 	}
 
-	indexToString(idx: number): string | null {
-		return this.values[idx]?.value ?? null
+	indexToString(idx: number): string {
+		return this.values[idx].value
 	}
 
 	delete(value: string): void {

@@ -38,46 +38,6 @@ export default class KVStore {
 		return this.data[idx]
 	}
 
-	delete(key: string): void {
-		const idx = this.stringTable.stringToIndex(key)
-		if (idx === null || idx >= this.data.length) return
-
-		const entry = this.data[idx]
-		const value = entry.value
-		if (value === null) return
-
-		entry.value = null
-		entry.expiry = null
-
-		this.stringTable.delete(key)
-		if (typeof value === 'number') {
-			const valueString = this.stringTable.indexToString(value)
-			if (valueString === null) throw new Error('Implementation error')
-			this.stringTable.delete(valueString)
-			return
-		}
-
-		if (value instanceof NumberList) {
-			for (const item of value.data.subarray(0, value.len)) {
-				const itemString = this.stringTable.indexToString(item)
-				if (itemString === null) throw new Error('Implementation error')
-				this.stringTable.delete(itemString)
-			}
-			return
-		}
-
-		if (value instanceof BitSet) {
-			for (const item of value.items()) {
-				const itemString = this.stringTable.indexToString(item)
-				if (itemString === null) throw new Error('Implementation error')
-				this.stringTable.delete(itemString)
-			}
-			return
-		}
-
-		throw new Error('Not implemented')
-	}
-
 	private heapCmp(idx1: number, idx2: number) {
 		const entry1 = this.data[idx1]
 		const entry2 = this.data[idx2]
@@ -126,7 +86,7 @@ export default class KVStore {
 				}
 			}
 
-			if (this.heapCmp(val, childVal)) continue
+			if (this.heapCmp(val, childVal)) break
 
 			this.heap.data[idx] = childVal
 			const expiry = this.data[childVal].expiry
@@ -141,6 +101,68 @@ export default class KVStore {
 		const expiry = this.data[val].expiry
 		if (expiry === null) throw new Error('Implementation error')
 		expiry.heapPosition = idx
+	}
+
+	private removeFromHeap(heapPos: number): void {
+		const itemToRemoveIdx = this.heap.data[heapPos]
+		const lastHeapItemIdx = this.heap.pop()
+
+		if (lastHeapItemIdx === null) {
+			throw new Error('Implementation error')
+		}
+
+		if (heapPos < this.heap.len) {
+			this.heap.data[heapPos] = lastHeapItemIdx
+			const movedEntry = this.data[lastHeapItemIdx]
+			if (movedEntry.expiry === null) throw new Error('Implementation error')
+			movedEntry.expiry.heapPosition = heapPos
+			this.siftDown(heapPos)
+		}
+
+		const removedKVEntry = this.data[itemToRemoveIdx]
+		if (removedKVEntry.expiry) {
+			removedKVEntry.expiry = null
+		}
+	}
+
+	delete(key: string): void {
+		const idx = this.stringTable.stringToIndex(key)
+		if (idx === null || idx >= this.data.length) return
+
+		const entry = this.data[idx]
+		const value = entry.value
+		if (value === null) return
+
+		entry.value = null
+
+		if (entry.expiry !== null) {
+			this.removeFromHeap(entry.expiry.heapPosition)
+		}
+
+		this.stringTable.delete(key)
+		if (typeof value === 'number') {
+			const valueString = this.stringTable.indexToString(value)
+			this.stringTable.delete(valueString)
+			return
+		}
+
+		if (value instanceof NumberList) {
+			for (const item of value.data.subarray(0, value.len)) {
+				const itemString = this.stringTable.indexToString(item)
+				this.stringTable.delete(itemString)
+			}
+			return
+		}
+
+		if (value instanceof BitSet) {
+			for (const item of value.items()) {
+				const itemString = this.stringTable.indexToString(item)
+				this.stringTable.delete(itemString)
+			}
+			return
+		}
+
+		const _: never = value
 	}
 
 	expireKey(key: string, seconds: number): void {
@@ -177,15 +199,9 @@ export default class KVStore {
 			if (expiry.expireTime > currentTime) break
 
 			const key = this.stringTable.indexToString(top)
-			if (key === null) throw new Error('Implementation error')
-			this.delete(key)
-			const newTop = this.heap.pop()
-			if (newTop === null) break
 
-			if (this.heap.len > 0) {
-				this.heap.data[0] = newTop
-				this.siftDown(0)
-			}
+			this.removeFromHeap(0)
+			this.delete(key)
 		}
 	}
 
@@ -202,11 +218,7 @@ export default class KVStore {
 		const value = entry.value
 
 		if (typeof value === 'number') {
-			const valueString = this.stringTable.indexToString(value)
-			if (valueString === null) {
-				throw new Error('Implementation error')
-			}
-			return valueString
+			return this.stringTable.indexToString(value)
 		}
 
 		throw new Error('Key holds a value that is not a string')
@@ -246,7 +258,6 @@ export default class KVStore {
 			const item = value.pop()
 			if (item === null) return null
 			const itemString = this.stringTable.indexToString(item)
-			if (itemString === null) throw new Error('Implementation error')
 			this.stringTable.delete(itemString)
 			return itemString
 		}
@@ -265,9 +276,7 @@ export default class KVStore {
 			const result = new Array<string>(resultLen)
 			for (let i = 0; i < resultLen; ++i) {
 				const item = value.data[i + start]
-				const itemString = this.stringTable.indexToString(item)
-				if (itemString === null) throw new Error('Implementation error')
-				result[i] = itemString
+				result[i] = this.stringTable.indexToString(item)
 			}
 			return result
 		}
@@ -324,9 +333,7 @@ export default class KVStore {
 
 		for (let i = 0; i < items.length; ++i) {
 			const item = items[i]
-			const itemString = this.stringTable.indexToString(item)
-			if (itemString === null) throw new Error('Implementation error')
-			result[i] = itemString
+			result[i] = this.stringTable.indexToString(item)
 		}
 
 		return result
@@ -382,9 +389,7 @@ export default class KVStore {
 		const result = new Array<string>()
 		for (let i = 0; i < this.data.length; ++i) {
 			if (this.data[i].value !== null) {
-				const key = this.stringTable.indexToString(i)
-				if (key === null) throw new Error('Implementation error')
-				result.push(key)
+				result.push(this.stringTable.indexToString(i))
 			}
 		}
 		return result
@@ -392,7 +397,9 @@ export default class KVStore {
 
 	ttl(key: string): number | null {
 		this.clearExpired()
-		const entry = this.getEntry(key)
+		const idx = this.stringTable.stringToIndex(key)
+		if (idx === null || idx >= this.data.length) return null
+		const entry = this.data[idx]
 		const currentTime = Date.now() / 1000
 
 		if (entry.expiry === null) return null
