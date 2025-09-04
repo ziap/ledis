@@ -3,8 +3,8 @@ import BitSet from '../bitset.ts'
 
 Deno.test('BitSet: constructor initializes correctly', () => {
 	const bs = new BitSet()
-	assertEquals(bs['data'].length, 32) // Accessing private property for test
-	assertEquals(Array.from(bs['data']), new Array(32).fill(0))
+	assertEquals(bs['data'].length, 4) // Accessing private property for test
+	assertEquals(Array.from(bs['data']), new Array(4).fill(0))
 
 	const initialData = new Uint32Array([1, 2, 4])
 	const bs2 = new BitSet(initialData)

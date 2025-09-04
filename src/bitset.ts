@@ -1,7 +1,7 @@
 // TODO: Reduce memory usage using Roaring Bitmap
 export default class BitSet {
 	constructor(
-		private data = new Uint32Array(32),
+		private data = new Uint32Array(4),
 	) {}
 
 	add(value: number): void {

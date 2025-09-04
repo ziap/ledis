@@ -1,9 +1,10 @@
 import NumberList from './number-list.ts'
 
 class StringTableEntry {
+	refcount = 1
+
 	constructor(
 		public value: string,
-		public refcount: number,
 	) {}
 }
 
@@ -19,7 +20,7 @@ export default class StringTable {
 
 			if (newIdx === null) {
 				const len = this.values.length
-				this.values.push(new StringTableEntry(value, 1))
+				this.values.push(new StringTableEntry(value))
 				this.index.set(value, len)
 				return len
 			}
