@@ -1,35 +1,56 @@
 export default class NumberList {
-	private data: Uint32Array
-	len: number
+	private constructor(
+		private data: Uint32Array,
+		private size: number,
+	) {}
 
-	constructor(values: number[] = []) {
-		const len = values.length
-		const capacity = Math.max(1 << (32 - Math.clz32(len - 1)), 4)
-		this.data = new Uint32Array(capacity)
-		this.data.set(values)
-		this.len = len
+	static empty(): NumberList {
+		return NumberList.withCapacity(4)
+	}
+
+	static withCapacity(capacity: number): NumberList {
+		const aligned = 1 << (32 - Math.clz32(capacity - 1))
+		const buffer = new Uint32Array(Math.max(aligned, 4))
+		return new NumberList(buffer, 0)
+	}
+
+	static zeros(length: number): NumberList {
+		const list = NumberList.withCapacity(length)
+		list.size = length
+		return list
+	}
+
+	static fromArray(values: number[]): NumberList {
+		const list = NumberList.withCapacity(values.length)
+		list.data.set(values)
+		list.size = values.length
+		return list
+	}
+
+	get len(): number {
+		return this.size
 	}
 
 	push(value: number) {
-		if (this.data.length === this.len) {
+		if (this.data.length === this.size) {
 			const oldData = this.data
 			this.data = new Uint32Array(this.data.length << 1)
 			this.data.set(oldData)
 		}
 
 		this.data[this.len] = value
-		this.len += 1
+		this.size += 1
 	}
 
 	pop(): number | null {
-		if (this.len === 0) return null
+		if (this.size === 0) return null
 
-		this.len -= 1
+		this.size -= 1
 		const value = this.data[this.len]
 		return value
 	}
 
-	view(): Uint32Array {
+	get view(): Uint32Array {
 		return this.data.subarray(0, this.len)
 	}
 }

@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertThrows } from '@std/assert'
+import { assert, assertEquals, assertNotEquals, assertThrows } from '@std/assert'
 import { delay } from '@std/async/delay'
 
 import KVStore from '../kvstore.ts'
@@ -177,7 +177,7 @@ Deno.test('KVStore: delete for different types', () => {
 	assertThrows(() => kv.getSet('mySet'))
 })
 
-Deno.test('KVStore: stringTable cleanup on delete', () => {
+Deno.test('KVStore: stringPool cleanup on delete', () => {
 	const kv = new KVStore()
 	kv.setString('key1', 'value1')
 	kv.pushArray('key2', ['item1', 'item2'])
@@ -187,22 +187,22 @@ Deno.test('KVStore: stringTable cleanup on delete', () => {
 	kv.delete('key2')
 	kv.delete('key3')
 
-	const size = kv['stringTable']['values'].length
+	const size = kv['stringPool']['values'].length
 
 	// The string table should be smaller after deleting keys and their values
 	// Exact count is hard to assert without internal knowledge of StringTable.
 	// We can at least check that the keys themselves are gone from StringTable.
-	assertEquals(kv['stringTable'].stringToIndex('key1'), null)
-	assertEquals(kv['stringTable'].stringToIndex('value1'), null)
-	assertEquals(kv['stringTable'].stringToIndex('key2'), null)
-	assertEquals(kv['stringTable'].stringToIndex('item1'), null)
-	assertEquals(kv['stringTable'].stringToIndex('item2'), null)
-	assertEquals(kv['stringTable'].stringToIndex('key3'), null)
-	assertEquals(kv['stringTable'].stringToIndex('setitem1'), null)
-	assertEquals(kv['stringTable'].stringToIndex('setitem2'), null)
+	assertEquals(kv['stringPool'].stringToIndex('key1'), null)
+	assertEquals(kv['stringPool'].stringToIndex('value1'), null)
+	assertEquals(kv['stringPool'].stringToIndex('key2'), null)
+	assertEquals(kv['stringPool'].stringToIndex('item1'), null)
+	assertEquals(kv['stringPool'].stringToIndex('item2'), null)
+	assertEquals(kv['stringPool'].stringToIndex('key3'), null)
+	assertEquals(kv['stringPool'].stringToIndex('setitem1'), null)
+	assertEquals(kv['stringPool'].stringToIndex('setitem2'), null)
 
 	// The string table correctly clean up all strings and mark them for reuse
-	assertEquals(kv['stringTable']['freeIndices'].len, size)
+	assertEquals(kv['stringPool']['freeIndices'].len, size)
 })
 
 Deno.test('KVStore: deleting a key with expiry removes it from heap', async () => {
@@ -347,11 +347,11 @@ Deno.test('KVStore: serialize and deserialize an empty store', () => {
 	const deserializedKv = KVStore.deserialize(serialized)
 
 	assertEquals(deserializedKv.keys(), [])
-	assertEquals(deserializedKv['stringTable']['values'].length, 0)
+	assertEquals(deserializedKv['stringPool']['values'].length, 0)
 	assertEquals(deserializedKv['heap'].len, 0)
 })
 
-Deno.test('KVStore: serialize/deserialize with string values', () => {
+Deno.test('KVStore: (de)serialize with string values', () => {
 	const kv = new KVStore()
 	kv.setString('name', 'Deno')
 	kv.setString('greeting', 'Hello World')
@@ -364,7 +364,7 @@ Deno.test('KVStore: serialize/deserialize with string values', () => {
 	assertEquals(deserializedKv.keys().sort(), ['greeting', 'name'].sort())
 })
 
-Deno.test('KVStore: serialize/deserialize with list values', () => {
+Deno.test('KVStore: (de)serialize with list values', () => {
 	const kv = new KVStore()
 	kv.pushArray('myList', ['a', 'b', 'c'])
 	kv.pushArray('anotherList', ['x', 'y'])
@@ -377,7 +377,7 @@ Deno.test('KVStore: serialize/deserialize with list values', () => {
 	assertEquals(deserializedKv.keys().sort(), ['anotherList', 'myList'].sort())
 })
 
-Deno.test('KVStore: serialize/deserialize with set values', () => {
+Deno.test('KVStore: (de)serialize with set values', () => {
 	const kv = new KVStore()
 	kv.addSet('mySet', ['apple', 'banana'])
 	kv.addSet('anotherSet', ['red', 'green'])
@@ -396,7 +396,7 @@ Deno.test('KVStore: serialize/deserialize with set values', () => {
 	assertEquals(deserializedKv.keys().sort(), ['anotherSet', 'mySet'].sort())
 })
 
-Deno.test('KVStore: serialize/deserialize with mixed data types', () => {
+Deno.test('KVStore: (de)serialize with mixed data types', () => {
 	const kv = new KVStore()
 	kv.setString('strKey', 'stringValue')
 	kv.pushArray('listKey', ['listVal1', 'listVal2'])
@@ -420,7 +420,7 @@ Deno.test('KVStore: serialize/deserialize with mixed data types', () => {
 	)
 })
 
-Deno.test('KVStore: serialize/deserialize with expiry preserving heap invariant', async () => {
+Deno.test('KVStore: (de)serialize with expiry preserving heap invariant', async () => {
 	const kv = new KVStore()
 	kv.setString('key1', 'value1')
 	kv.expireKey('key1', 3) // Expires in 3 seconds
@@ -491,7 +491,7 @@ Deno.test('KVStore: serialize/deserialize with expiry preserving heap invariant'
 	)
 })
 
-Deno.test('KVStore: serialize/deserialize with a key that had expiry but was deleted', () => {
+Deno.test('KVStore: (de)serialize with a key that had expiry but was deleted', () => {
 	const kv = new KVStore()
 	kv.setString('key1', 'value1')
 	kv.expireKey('key1', 1)
@@ -505,23 +505,162 @@ Deno.test('KVStore: serialize/deserialize with a key that had expiry but was del
 	assertEquals(deserializedKv['heap'].len, 0)
 })
 
-Deno.test('KVStore: stringTable consistency after serialize/deserialize', () => {
-	const kv = new KVStore()
-	kv.setString('k1', 'v1')
-	kv.pushArray('k2', ['a', 'b'])
-	kv.addSet('k3', ['x', 'y'])
-	kv.setString('k4', 'v1') // 'v1' is reused
+Deno.test('KVStore - (de)serialize simple string', () => {
+	const store = new KVStore()
+	store.setString('key1', 'value1')
 
-	const serialized = kv.serialize()
-	const deserializedKv = KVStore.deserialize(serialized)
+	const serialized = store.serialize()
+	const deserializedStore = KVStore.deserialize(serialized)
 
-	// Check if string table indices are consistent for retrieval
-	assertEquals(deserializedKv.getString('k1'), 'v1')
-	assertEquals(deserializedKv.getString('k4'), 'v1')
-	assertEquals(deserializedKv.sliceArray('k2', 0, 1), ['a', 'b'])
-	assertEquals(deserializedKv.getSet('k3').sort(), ['x', 'y'].sort())
+	assertEquals(deserializedStore.getString('key1'), 'value1')
 
-	// Add new string to verify stringTable reuse works
-	deserializedKv.setString('k5', 'new_value')
-	assertEquals(deserializedKv.getString('k5'), 'new_value')
+	const pool = deserializedStore['stringPool']
+	assertEquals(pool.values, ['key1', 'value1'])
+	assertEquals(pool.stringToIndex('key1'), 0)
+	assertEquals(pool.stringToIndex('value1'), 1)
+	assertEquals(pool['refcount'].view, new Uint32Array([1, 1]))
+	assertEquals(pool['freeIndices'].len, 0)
+})
+
+Deno.test('KVStore - (de)serialize with shared strings', () => {
+	const store = new KVStore()
+	store.setString('a', 'a') // 'a' is used as key and value
+	store.setString('b', 'a') // 'a' is used as value again
+
+	const serialized = store.serialize()
+	const deserializedStore = KVStore.deserialize(serialized)
+
+	assertEquals(deserializedStore.getString('a'), 'a')
+	assertEquals(deserializedStore.getString('b'), 'a')
+
+	const pool = deserializedStore['stringPool']
+	// Order might differ, but content is key
+	assertEquals(new Set(pool.values), new Set(['a', 'b']))
+	const indexA = pool.stringToIndex('a')
+	const indexB = pool.stringToIndex('b')
+
+	assertNotEquals(indexA, null)
+	assertNotEquals(indexB, null)
+
+	// 'a' is used 3 times (key 'a', value 'a', value for 'b')
+	// 'b' is used 1 time (key 'b')
+	assertEquals(pool['refcount'].view[indexA!], 3)
+	assertEquals(pool['refcount'].view[indexB!], 1)
+	assertEquals(pool['freeIndices'].len, 0)
+})
+
+Deno.test('KVStore - (de)serialize with list and set', () => {
+	const store = new KVStore()
+	store.pushArray('myList', ['item1', 'item2', 'item1'])
+	store.addSet('mySet', ['item2', 'item3'])
+
+	const serialized = store.serialize()
+	const deserializedStore = KVStore.deserialize(serialized)
+
+	assertEquals(deserializedStore.sliceArray('myList', 0, 2), [
+		'item1',
+		'item2',
+		'item1',
+	])
+	assertEquals(new Set(deserializedStore.getSet('mySet')), new Set(['item2', 'item3']))
+
+	const pool = deserializedStore['stringPool']
+	const expectedStrings = ['myList', 'item1', 'item2', 'mySet', 'item3']
+	assertEquals(new Set(pool.values), new Set(expectedStrings))
+
+	const refcounts = {
+		myList: 1, // key
+		item1: 2, // in list twice
+		item2: 2, // in list and set
+		mySet: 1, // key
+		item3: 1, // in set
+	}
+
+	for (const [str, count] of Object.entries(refcounts)) {
+		const index = pool.stringToIndex(str)
+		assertNotEquals(index, null)
+		assertEquals(pool['refcount'].view[index!], count)
+	}
+
+	assertEquals(pool['freeIndices'].len, 0)
+})
+
+Deno.test('KVStore - (de)serialize with deleted items and freed indices', () => {
+	const store = new KVStore()
+	store.setString('a', 'b')
+	store.setString('c', 'd')
+	store.delete('a') // This should free indices used by 'a' and 'b'
+
+	const serialized = store.serialize()
+	const deserializedStore = KVStore.deserialize(serialized)
+
+	assertEquals(deserializedStore.getString('c'), 'd')
+	assertEquals(deserializedStore.keys(), ['c'])
+
+	const pool = deserializedStore['stringPool']
+	const indexC = pool.stringToIndex('c')!
+	const indexD = pool.stringToIndex('d')!
+
+	// Check that 'a' and 'b' are not in the index
+	assertEquals(pool.stringToIndex('a'), null)
+	assertEquals(pool.stringToIndex('b'), null)
+
+	// Check that the values for freed indices are empty strings
+	for (let i = 0; i < pool.values.length; i++) {
+		if (i !== indexC && i !== indexD) {
+			assertEquals(pool.values[i], '')
+		}
+	}
+
+	// Check refcounts
+	assertEquals(pool['refcount'].view[indexC], 1)
+	assertEquals(pool['refcount'].view[indexD], 1)
+
+	// The string pool constructor should identify indices with refcount 0
+	// and add them to the free list.
+	assertNotEquals(pool['freeIndices'].len, 0)
+	assertEquals(pool['freeIndices'].len, 2)
+})
+
+Deno.test('KVStore - reuse freed indices after deserialization', () => {
+	const store = new KVStore()
+	store.setString('a', 'b') // Uses indices 0, 1
+	store.setString('c', 'd') // Uses indices 2, 3
+	store.delete('a') // Frees indices 0, 1
+
+	const serialized = store.serialize()
+	const deserializedStore = KVStore.deserialize(serialized)
+
+	// Add new data that should reuse the freed indices (0, 1)
+	deserializedStore.setString('e', 'f')
+
+	assertEquals(deserializedStore.getString('c'), 'd')
+	assertEquals(deserializedStore.getString('e'), 'f')
+
+	const pool = deserializedStore['stringPool']
+	const indexE = pool.stringToIndex('e')
+	const indexF = pool.stringToIndex('f')
+
+	// Check if the freed indices were reused
+	const reused = (indexE === 0 && indexF === 1) || (indexE === 1 && indexF === 0)
+	assertEquals(reused, true)
+
+	// Check final state of the pool
+	assertEquals(new Set(pool.values), new Set(['e', 'f', 'c', 'd']))
+	assertEquals(pool['refcount'].view, new Uint32Array([1, 1, 1, 1]))
+	assertEquals(pool['freeIndices'].len, 0)
+})
+
+Deno.test('KVStore - (de)serialize empty store', () => {
+	const store = new KVStore()
+	const serialized = store.serialize()
+	const deserializedStore = KVStore.deserialize(serialized)
+
+	assertEquals(deserializedStore.keys(), [])
+
+	const pool = deserializedStore['stringPool']
+	assertEquals(pool.values, [])
+	assertEquals(pool['refcount'].len, 0)
+	assertEquals(pool['index'].size, 0)
+	assertEquals(pool['freeIndices'].len, 0)
 })

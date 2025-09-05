@@ -29,7 +29,8 @@ Deno.test('assertNever: missing cases', () => {
 				case 'type3':
 					break
 				default:
-					assertNever(test as never)
+					// @ts-ignore: disable type checking to catch RE
+					assertNever(test)
 			}
 		},
 		Error,

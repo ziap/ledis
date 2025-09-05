@@ -2,18 +2,21 @@ import { assertEquals, assertNotEquals } from '@std/assert'
 import BitSet from '../bitset.ts'
 
 Deno.test('BitSet: constructor initializes correctly', () => {
-	const bs = new BitSet()
+	const bs = BitSet.empty()
 	assertEquals(bs['data'].length, 4) // Accessing private property for test
 	assertEquals(Array.from(bs['data']), new Array(4).fill(0))
 
+	// Bypass private constructor to construct with some initial data
 	const initialData = new Uint32Array([1, 2, 4])
-	const bs2 = new BitSet(initialData)
+
+	const B = BitSet as unknown as { new (data: Uint32Array): BitSet }
+	const bs2 = new B(initialData)
 	assertEquals(bs2['data'].length, 3)
 	assertEquals(Array.from(bs2['data']), [1, 2, 4])
 })
 
 Deno.test('BitSet: add works for various values', () => {
-	const bs = new BitSet()
+	const bs = BitSet.empty()
 
 	// Add a small value
 	bs.add(0)
@@ -53,7 +56,7 @@ Deno.test('BitSet: add works for various values', () => {
 })
 
 Deno.test('BitSet: delete works for various values', () => {
-	const bs = new BitSet()
+	const bs = BitSet.empty()
 	bs.add(0)
 	bs.add(5)
 	bs.add(32)
@@ -86,7 +89,7 @@ Deno.test('BitSet: delete works for various values', () => {
 })
 
 Deno.test('BitSet: count returns correct number of set bits', () => {
-	const bs = new BitSet()
+	const bs = BitSet.empty()
 	assertEquals(bs.count(), 0)
 
 	bs.add(0)
@@ -120,7 +123,7 @@ Deno.test('BitSet: count returns correct number of set bits', () => {
 })
 
 Deno.test('BitSet: items returns all set bits in order', () => {
-	const bs = new BitSet()
+	const bs = BitSet.empty()
 	assertEquals(Array.from(bs.items()), [])
 
 	bs.add(1)
@@ -139,22 +142,22 @@ Deno.test('BitSet: items returns all set bits in order', () => {
 })
 
 Deno.test('BitSet: static union combines multiple sets', () => {
-	const bs1 = new BitSet()
+	const bs1 = BitSet.empty()
 	bs1.add(0)
 	bs1.add(1)
 	bs1.add(5)
 
-	const bs2 = new BitSet()
+	const bs2 = BitSet.empty()
 	bs2.add(1)
 	bs2.add(3)
 	bs2.add(32)
 
-	const bs3 = new BitSet()
+	const bs3 = BitSet.empty()
 	bs3.add(5)
 	bs3.add(33)
 	bs3.add(64)
 
-	const emptySet = new BitSet()
+	const emptySet = BitSet.empty()
 
 	// Union with empty array
 	let result = BitSet.union([])
@@ -178,27 +181,27 @@ Deno.test('BitSet: static union combines multiple sets', () => {
 })
 
 Deno.test('BitSet: static intersect finds common bits in multiple sets', () => {
-	const bs1 = new BitSet()
+	const bs1 = BitSet.empty()
 	bs1.add(0)
 	bs1.add(1)
 	bs1.add(5)
 	bs1.add(32)
 	bs1.add(33)
 
-	const bs2 = new BitSet()
+	const bs2 = BitSet.empty()
 	bs2.add(1)
 	bs2.add(3)
 	bs2.add(5)
 	bs2.add(33)
 	bs2.add(64)
 
-	const bs3 = new BitSet()
+	const bs3 = BitSet.empty()
 	bs3.add(1)
 	bs3.add(5)
 	bs3.add(33)
 	bs3.add(100)
 
-	const emptySet = new BitSet()
+	const emptySet = BitSet.empty()
 
 	// Intersect with empty array
 	let result = BitSet.intersect([])

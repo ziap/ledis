@@ -1,7 +1,11 @@
 export default class BitSet {
-	constructor(
-		private data = new Uint32Array(4),
+	private constructor(
+		private data: Uint32Array,
 	) {}
+
+	static empty(): BitSet {
+		return new BitSet(new Uint32Array(4))
+	}
 
 	add(value: number): boolean {
 		const idx = value >> 5
@@ -57,7 +61,7 @@ export default class BitSet {
 	}
 
 	static union(sets: readonly BitSet[]): BitSet {
-		if (sets.length === 0) return new BitSet()
+		if (sets.length === 0) return BitSet.empty()
 
 		let len = 0
 		for (const set of sets) {
@@ -75,7 +79,7 @@ export default class BitSet {
 	}
 
 	static intersect(sets: readonly BitSet[]): BitSet {
-		if (sets.length === 0) return new BitSet()
+		if (sets.length === 0) return BitSet.empty()
 
 		const max = (-1) >>> 0
 		let len = max

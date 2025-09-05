@@ -1,14 +1,30 @@
 import NumberList from './number-list.ts'
-import StringTable from './string-table.ts'
+import StringPool from './string-pool.ts'
 import BitSet from './bitset.ts'
 
-import * as serialize from './serialize.ts'
 import { assertNever } from './utils.ts'
 
+type Serialized = {
+	stringPool: string[]
+	data: {
+		value?: {
+			kind: 'string'
+			data: number
+		} | {
+			kind: 'list'
+			data: number[]
+		} | {
+			kind: 'set'
+			data: number[]
+		}
+		expireTime?: number
+	}[]
+}
+
 class Expiry {
+	public heapPosition: number = -1
 	constructor(
 		public expireTime: number,
-		public heapPosition: number,
 	) {}
 }
 
@@ -21,12 +37,24 @@ class KVEntry {
 }
 
 export default class KVStore {
-	private stringTable = new StringTable()
-	private data = new Array<KVEntry>()
-	private heap = new NumberList()
+	private heap = NumberList.empty()
+
+	constructor(
+		private stringPool = new StringPool(),
+		private data = new Array<KVEntry>(),
+	) {
+		for (let i = 0; i < data.length; ++i) {
+			const expiry = data[i].expiry
+			if (expiry !== null) {
+				const heapIdx = this.heap.len
+				this.heap.push(i)
+				this.siftUp(heapIdx)
+			}
+		}
+	}
 
 	private getEntry(key: string): KVEntry {
-		const idx = this.stringTable.stringToIndex(key)
+		const idx = this.stringPool.stringToIndex(key)
 		if (idx === null || idx >= this.data.length) {
 			throw new Error('Key does not exists')
 		}
@@ -34,7 +62,7 @@ export default class KVStore {
 	}
 
 	private addEntry(key: string): KVEntry {
-		const idx = this.stringTable.add(key)
+		const idx = this.stringPool.add(key)
 		while (this.data.length <= idx) {
 			this.data.push(new KVEntry(null))
 		}
@@ -55,34 +83,34 @@ export default class KVStore {
 	}
 
 	private siftUp(idx: number) {
-		const val = this.heap.view()[idx]
+		const val = this.heap.view[idx]
 
 		let p = (idx - 1) >> 1
-		let pVal = this.heap.view()[p]
+		let pVal = this.heap.view[p]
 		while (idx > 0 && !this.heapCmp(pVal, val)) {
-			this.heap.view()[idx] = pVal
+			this.heap.view[idx] = pVal
 			const expiry = this.data[pVal].expiry
 			if (expiry === null) throw new Error('Implementation error')
 			expiry.heapPosition = idx
 
 			idx = p
 			p = (idx - 1) >> 1
-			pVal = this.heap.view()[p]
+			pVal = this.heap.view[p]
 		}
 
-		this.heap.view()[idx] = val
+		this.heap.view[idx] = val
 		const expiry = this.data[val].expiry
 		if (expiry === null) throw new Error('Implementation error')
 		expiry.heapPosition = idx
 	}
 
 	private siftDown(idx: number) {
-		const val = this.heap.view()[idx]
+		const val = this.heap.view[idx]
 		let childIdx = (idx << 1) | 1
 		while (childIdx < this.heap.len) {
-			let childVal = this.heap.view()[childIdx]
+			let childVal = this.heap.view[childIdx]
 			if (childIdx + 1 < this.heap.len) {
-				const otherVal = this.heap.view()[childIdx + 1]
+				const otherVal = this.heap.view[childIdx + 1]
 				if (this.heapCmp(otherVal, childVal)) {
 					childIdx += 1
 					childVal = otherVal
@@ -91,7 +119,7 @@ export default class KVStore {
 
 			if (this.heapCmp(val, childVal)) break
 
-			this.heap.view()[idx] = childVal
+			this.heap.view[idx] = childVal
 			const expiry = this.data[childVal].expiry
 			if (expiry === null) throw new Error('Implementation error')
 			expiry.heapPosition = idx
@@ -100,14 +128,14 @@ export default class KVStore {
 			childIdx = (idx << 1) | 1
 		}
 
-		this.heap.view()[idx] = val
+		this.heap.view[idx] = val
 		const expiry = this.data[val].expiry
 		if (expiry === null) throw new Error('Implementation error')
 		expiry.heapPosition = idx
 	}
 
 	private removeFromHeap(heapPos: number): void {
-		const itemToRemoveIdx = this.heap.view()[heapPos]
+		const itemToRemoveIdx = this.heap.view[heapPos]
 		const lastHeapItemIdx = this.heap.pop()
 
 		if (lastHeapItemIdx === null) {
@@ -115,7 +143,7 @@ export default class KVStore {
 		}
 
 		if (heapPos < this.heap.len) {
-			this.heap.view()[heapPos] = lastHeapItemIdx
+			this.heap.view[heapPos] = lastHeapItemIdx
 			const movedEntry = this.data[lastHeapItemIdx]
 			if (movedEntry.expiry === null) throw new Error('Implementation error')
 			movedEntry.expiry.heapPosition = heapPos
@@ -129,7 +157,7 @@ export default class KVStore {
 	}
 
 	delete(key: string): void {
-		const idx = this.stringTable.stringToIndex(key)
+		const idx = this.stringPool.stringToIndex(key)
 		if (idx === null || idx >= this.data.length) return
 
 		const entry = this.data[idx]
@@ -142,25 +170,25 @@ export default class KVStore {
 			this.removeFromHeap(entry.expiry.heapPosition)
 		}
 
-		this.stringTable.delete(key)
+		this.stringPool.delete(key)
 		if (typeof value === 'number') {
-			const valueString = this.stringTable.indexToString(value)
-			this.stringTable.delete(valueString)
+			const valueString = this.stringPool.indexToString(value)
+			this.stringPool.delete(valueString)
 			return
 		}
 
 		if (value instanceof NumberList) {
-			for (const item of value.view()) {
-				const itemString = this.stringTable.indexToString(item)
-				this.stringTable.delete(itemString)
+			for (const item of value.view) {
+				const itemString = this.stringPool.indexToString(item)
+				this.stringPool.delete(itemString)
 			}
 			return
 		}
 
 		if (value instanceof BitSet) {
 			for (const item of value.items()) {
-				const itemString = this.stringTable.indexToString(item)
-				this.stringTable.delete(itemString)
+				const itemString = this.stringPool.indexToString(item)
+				this.stringPool.delete(itemString)
 			}
 			return
 		}
@@ -171,7 +199,7 @@ export default class KVStore {
 	expireKey(key: string, seconds: number): void {
 		this.clearExpired()
 		const expireTime = Date.now() / 1000 + seconds
-		const idx = this.stringTable.stringToIndex(key)
+		const idx = this.stringPool.stringToIndex(key)
 		if (idx === null || idx >= this.data.length) {
 			throw new Error('Key does not exists')
 		}
@@ -179,7 +207,7 @@ export default class KVStore {
 
 		if (entry.expiry === null) {
 			const heapIdx = this.heap.len
-			entry.expiry = new Expiry(expireTime, heapIdx)
+			entry.expiry = new Expiry(expireTime)
 			this.heap.push(idx)
 			this.siftUp(heapIdx)
 		} else {
@@ -197,12 +225,12 @@ export default class KVStore {
 	private clearExpired(): void {
 		const currentTime = Date.now() / 1000
 		while (this.heap.len > 0) {
-			const top = this.heap.view()[0]
+			const top = this.heap.view[0]
 			const expiry = this.data[top].expiry
 			if (expiry === null) throw new Error('Implementation error')
 			if (expiry.expireTime > currentTime) break
 
-			const key = this.stringTable.indexToString(top)
+			const key = this.stringPool.indexToString(top)
 
 			this.removeFromHeap(0)
 			this.delete(key)
@@ -213,7 +241,7 @@ export default class KVStore {
 		this.clearExpired()
 		const entry = this.addEntry(key)
 		this.delete(key)
-		entry.value = this.stringTable.add(value)
+		entry.value = this.stringPool.add(value)
 	}
 
 	getString(key: string): string {
@@ -222,7 +250,7 @@ export default class KVStore {
 		const value = entry.value
 
 		if (typeof value === 'number') {
-			return this.stringTable.indexToString(value)
+			return this.stringPool.indexToString(value)
 		}
 
 		throw new Error('Key holds a value that is not a string')
@@ -234,11 +262,11 @@ export default class KVStore {
 		const value = entry.value
 
 		if (value !== null) {
-			this.stringTable.delete(key)
+			this.stringPool.delete(key)
 
 			if (value instanceof NumberList) {
 				for (const item of values) {
-					value.push(this.stringTable.add(item))
+					value.push(this.stringPool.add(item))
 				}
 			} else {
 				throw new Error('Key holds a value that is not a list')
@@ -247,9 +275,9 @@ export default class KVStore {
 			return
 		}
 
-		entry.value = new NumberList()
+		entry.value = NumberList.empty()
 		for (const item of values) {
-			entry.value.push(this.stringTable.add(item))
+			entry.value.push(this.stringPool.add(item))
 		}
 	}
 
@@ -261,8 +289,8 @@ export default class KVStore {
 		if (value instanceof NumberList) {
 			const item = value.pop()
 			if (item === null) return null
-			const itemString = this.stringTable.indexToString(item)
-			this.stringTable.delete(itemString)
+			const itemString = this.stringPool.indexToString(item)
+			this.stringPool.delete(itemString)
 			return itemString
 		}
 
@@ -279,8 +307,8 @@ export default class KVStore {
 			const resultLen = end - start + 1
 			const result = new Array<string>(resultLen)
 			for (let i = 0; i < resultLen; ++i) {
-				const item = value.view()[i + start]
-				result[i] = this.stringTable.indexToString(item)
+				const item = value.view[i + start]
+				result[i] = this.stringPool.indexToString(item)
 			}
 			return result
 		}
@@ -289,12 +317,12 @@ export default class KVStore {
 	}
 
 	private addSetItem(item: string, set: BitSet) {
-		const idx = this.stringTable.stringToIndex(item)
+		const idx = this.stringPool.stringToIndex(item)
 		if (idx === null) {
-			set.add(this.stringTable.add(item))
+			set.add(this.stringPool.add(item))
 		} else {
 			if (!set.add(idx)) {
-				this.stringTable.add(item)
+				this.stringPool.add(item)
 			}
 		}
 	}
@@ -305,7 +333,7 @@ export default class KVStore {
 		const value = entry.value
 
 		if (value !== null) {
-			this.stringTable.delete(key)
+			this.stringPool.delete(key)
 
 			if (value instanceof BitSet) {
 				for (const item of values) {
@@ -318,7 +346,7 @@ export default class KVStore {
 			return
 		}
 
-		entry.value = new BitSet()
+		entry.value = BitSet.empty()
 		for (const item of values) {
 			this.addSetItem(item, entry.value)
 		}
@@ -331,9 +359,9 @@ export default class KVStore {
 
 		if (value instanceof BitSet) {
 			for (const item of values) {
-				const idx = this.stringTable.stringToIndex(item)
+				const idx = this.stringPool.stringToIndex(item)
 				if (idx !== null && value.delete(idx)) {
-					this.stringTable.delete(item)
+					this.stringPool.delete(item)
 				}
 			}
 
@@ -348,7 +376,7 @@ export default class KVStore {
 
 		for (let i = 0; i < items.length; ++i) {
 			const item = items[i]
-			result[i] = this.stringTable.indexToString(item)
+			result[i] = this.stringPool.indexToString(item)
 		}
 
 		return result
@@ -404,7 +432,7 @@ export default class KVStore {
 		const result = new Array<string>()
 		for (let i = 0; i < this.data.length; ++i) {
 			if (this.data[i].value !== null) {
-				result.push(this.stringTable.indexToString(i))
+				result.push(this.stringPool.indexToString(i))
 			}
 		}
 		return result
@@ -412,7 +440,7 @@ export default class KVStore {
 
 	ttl(key: string): number | null {
 		this.clearExpired()
-		const idx = this.stringTable.stringToIndex(key)
+		const idx = this.stringPool.stringToIndex(key)
 		if (idx === null || idx >= this.data.length) return null
 		const entry = this.data[idx]
 		const currentTime = Date.now() / 1000
@@ -421,9 +449,9 @@ export default class KVStore {
 		return entry.expiry.expireTime - currentTime
 	}
 
-	serialize(): serialize.KVStore {
-		const result: serialize.KVStore = {
-			stringTable: this.stringTable.serialize(),
+	serialize(): Serialized {
+		const result: Serialized = {
+			stringPool: this.stringPool.values,
 			data: [],
 		}
 
@@ -433,7 +461,6 @@ export default class KVStore {
 
 			if (value === null) {
 				result.data.push({
-					value: null,
 					expireTime,
 				})
 
@@ -456,7 +483,7 @@ export default class KVStore {
 				result.data.push({
 					value: {
 						kind: 'list',
-						data: Array.from(value.view()),
+						data: Array.from(value.view),
 					},
 					expireTime,
 				})
@@ -465,12 +492,10 @@ export default class KVStore {
 			}
 
 			if (value instanceof BitSet) {
-				const data = value.items()
-
 				result.data.push({
 					value: {
 						kind: 'set',
-						data: Array.from(data),
+						data: Array.from(value.items()),
 					},
 					expireTime,
 				})
@@ -484,52 +509,59 @@ export default class KVStore {
 		return result
 	}
 
-	static deserialize(data: serialize.KVStore): KVStore {
-		const result = new KVStore()
-		result.stringTable = StringTable.deserialize(data.stringTable)
+	static deserialize({ data, stringPool: stringpool }: Serialized): KVStore {
+		const refcount = NumberList.zeros(stringpool.length)
+		const entries = new Array<KVEntry>()
 
-		for (let i = 0; i < data.data.length; ++i) {
-			const item = data.data[i]
-			const value = item.value
-			let entry: KVEntry
-			switch (value?.kind) {
-				case 'string':
-					{
-						entry = new KVEntry(value.data)
-					}
-					break
-				case 'list':
-					{
-						const list = new NumberList(value.data)
-						entry = new KVEntry(list)
-					}
-					break
-				case 'set':
-					{
-						const set = new BitSet()
-						for (const x of value.data) set.add(x)
-						entry = new KVEntry(set)
-					}
-					break
-				case undefined:
-					{
-						entry = new KVEntry(null)
-					}
-					break
-				default:
-					assertNever(value)
-			}
+		for (let i = 0; i < data.length; ++i) {
+			const { value, expireTime } = data[i]
 
-			result.data.push(entry)
+			if (value !== undefined) {
+				refcount.view[i] += 1
 
-			if (item.expireTime !== undefined) {
-				const heapIdx = result.heap.len
-				entry.expiry = new Expiry(item.expireTime, heapIdx)
-				result.heap.push(i)
-				result.siftUp(heapIdx)
+				let entry: KVEntry
+				switch (value.kind) {
+					case 'string':
+						{
+							entry = new KVEntry(value.data)
+							refcount.view[value.data] += 1
+						}
+						break
+					case 'list':
+						{
+							const list = NumberList.fromArray(value.data)
+							for (const item of list.view) {
+								refcount.view[item] += 1
+							}
+							entry = new KVEntry(list)
+						}
+						break
+					case 'set':
+						{
+							const set = BitSet.empty()
+							for (const item of value.data) {
+								if (!set.add(item)) {
+									refcount.view[item] += 1
+								}
+							}
+							entry = new KVEntry(set)
+						}
+						break
+					default:
+						assertNever(value)
+				}
+
+				if (expireTime !== undefined) {
+					entry.expiry = new Expiry(expireTime)
+				}
+
+				entries.push(entry)
+			} else {
+				entries.push(new KVEntry(null))
 			}
 		}
 
-		return result
+		const pool = new StringPool(stringpool, refcount)
+		return new KVStore(pool, entries)
 	}
 }
