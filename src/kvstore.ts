@@ -69,7 +69,7 @@ export default class KVStore {
 		return this.data[idx]
 	}
 
-	private heapCmp(idx1: number, idx2: number) {
+	private heapCmp(idx1: number, idx2: number): boolean {
 		const entry1 = this.data[idx1]
 		const entry2 = this.data[idx2]
 		const expiry1 = entry1.expiry
@@ -82,7 +82,7 @@ export default class KVStore {
 		return expiry1.expireTime < expiry2.expireTime
 	}
 
-	private siftUp(idx: number) {
+	private siftUp(idx: number): void {
 		const val = this.heap.view[idx]
 
 		let p = (idx - 1) >> 1
@@ -104,7 +104,7 @@ export default class KVStore {
 		expiry.heapPosition = idx
 	}
 
-	private siftDown(idx: number) {
+	private siftDown(idx: number): void {
 		const val = this.heap.view[idx]
 		let childIdx = (idx << 1) | 1
 		while (childIdx < this.heap.len) {
@@ -316,7 +316,7 @@ export default class KVStore {
 		throw new Error('Key holds a value that is not a list')
 	}
 
-	private addSetItem(item: string, set: BitSet) {
+	private addSetItem(item: string, set: BitSet): void {
 		const idx = this.stringPool.stringToIndex(item)
 		if (idx === null) {
 			set.add(this.stringPool.add(item))
@@ -413,14 +413,14 @@ export default class KVStore {
 		return sets
 	}
 
-	unionSet(keys: string[]) {
+	unionSet(keys: string[]): string[] {
 		this.clearExpired()
 		const sets = this.collectSets(keys)
 		const items = BitSet.union(sets).items()
 		return this.itemsToStrings(items)
 	}
 
-	intersectSet(keys: string[]) {
+	intersectSet(keys: string[]): string[] {
 		this.clearExpired()
 		const sets = this.collectSets(keys)
 		const items = BitSet.intersect(sets).items()

@@ -1,4 +1,9 @@
-import { assert, assertEquals, assertNotEquals, assertThrows } from '@std/assert'
+import {
+	assert,
+	assertEquals,
+	assertNotEquals,
+	assertThrows,
+} from '@std/assert'
 import { delay } from '@std/async/delay'
 
 import KVStore from '../kvstore.ts'
@@ -562,7 +567,10 @@ Deno.test('KVStore - (de)serialize with list and set', () => {
 		'item2',
 		'item1',
 	])
-	assertEquals(new Set(deserializedStore.getSet('mySet')), new Set(['item2', 'item3']))
+	assertEquals(
+		new Set(deserializedStore.getSet('mySet')),
+		new Set(['item2', 'item3']),
+	)
 
 	const pool = deserializedStore['stringPool']
 	const expectedStrings = ['myList', 'item1', 'item2', 'mySet', 'item3']
@@ -642,7 +650,8 @@ Deno.test('KVStore - reuse freed indices after deserialization', () => {
 	const indexF = pool.stringToIndex('f')
 
 	// Check if the freed indices were reused
-	const reused = (indexE === 0 && indexF === 1) || (indexE === 1 && indexF === 0)
+	const reused = (indexE === 0 && indexF === 1) ||
+		(indexE === 1 && indexF === 0)
 	assertEquals(reused, true)
 
 	// Check final state of the pool

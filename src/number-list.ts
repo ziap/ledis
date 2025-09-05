@@ -31,7 +31,7 @@ export default class NumberList {
 		return this.size
 	}
 
-	push(value: number) {
+	push(value: number): void {
 		if (this.data.length === this.size) {
 			const oldData = this.data
 			this.data = new Uint32Array(this.data.length << 1)

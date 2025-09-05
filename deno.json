@@ -11,5 +11,19 @@
     "singleQuote": true,
     "proseWrap": "preserve",
     "include": ["src/"],
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"],
+      "include": [
+        "camelcase",
+        "eqeqeq",
+        "explicit-function-return-type",
+        "explicit-module-boundary-types",
+        "no-eval",
+        "no-sparse-arrays",
+        "single-var-declarator",
+      ],
+    }
   }
 }

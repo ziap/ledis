@@ -72,16 +72,16 @@ Deno.test('StringPool - delete non-existent string does nothing', () => {
 
 Deno.test('StringPool - reuse freed indices', () => {
 	const pool = new StringPool()
-	const _idx_hello = pool.add('hello') // 0
-	const _idx_world = pool.add('world') // 1
+	const _idxHello = pool.add('hello') // 0
+	const _idxWorld = pool.add('world') // 1
 	pool.add('hello') // 0 (refcount 2)
 
 	pool.delete('world') // Free index 1
 	assertEquals(pool['freeIndices'].pop(), 1) // Confirm 1 is freed
 	pool['freeIndices'].push(1) // Put it back for the next add
 
-	const idx_deno = pool.add('deno') // Should reuse index 1
-	assertEquals(idx_deno, 1)
+	const idxDeno = pool.add('deno') // Should reuse index 1
+	assertEquals(idxDeno, 1)
 	assertEquals(pool.stringToIndex('deno'), 1)
 	assertEquals(pool.values[1], 'deno')
 	assertEquals(pool['refcount'].view[1], 1)
