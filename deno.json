@@ -13,6 +13,7 @@
     "include": ["src/"],
   },
   "lint": {
+    "include": ["src/"],
     "rules": {
       "tags": ["recommended"],
       "include": [
@@ -25,5 +26,9 @@
         "single-var-declarator",
       ],
     }
-  }
+  },
+  "tasks": {
+    "build": "deno bundle src/index.ts -o www/index.js --platform browser --minify",
+    "watch": "deno bundle src/index.ts -o www/index.js --platform browser --watch",
+  },
 }

@@ -12,6 +12,7 @@
     devShell.${system} = pkgs.mkShell {
       buildInputs = [
         pkgs.deno
+        pkgs.static-web-server
       ];
     };
   };
