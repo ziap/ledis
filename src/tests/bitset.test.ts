@@ -1,7 +1,7 @@
 import { assertEquals, assertNotEquals } from '@std/assert'
 import BitSet from '../bitset.ts'
 
-Deno.test('BitSet: constructor initializes correctly', () => {
+Deno.test('BitSet - constructor initializes correctly', () => {
 	const bs = BitSet.empty()
 	assertEquals(bs['data'].length, 4) // Accessing private property for test
 	assertEquals(Array.from(bs['data']), new Array(4).fill(0))
@@ -15,7 +15,7 @@ Deno.test('BitSet: constructor initializes correctly', () => {
 	assertEquals(Array.from(bs2['data']), [1, 2, 4])
 })
 
-Deno.test('BitSet: add works for various values', () => {
+Deno.test('BitSet - add works for various values', () => {
 	const bs = BitSet.empty()
 
 	// Add a small value
@@ -55,7 +55,7 @@ Deno.test('BitSet: add works for various values', () => {
 	assertEquals(bs.count(), initialCount)
 })
 
-Deno.test('BitSet: delete works for various values', () => {
+Deno.test('BitSet - delete works for various values', () => {
 	const bs = BitSet.empty()
 	bs.add(0)
 	bs.add(5)
@@ -88,7 +88,7 @@ Deno.test('BitSet: delete works for various values', () => {
 	assertEquals(bs['data'].length, initialLength) // Should not change length or throw
 })
 
-Deno.test('BitSet: count returns correct number of set bits', () => {
+Deno.test('BitSet - count returns correct number of set bits', () => {
 	const bs = BitSet.empty()
 	assertEquals(bs.count(), 0)
 
@@ -122,7 +122,7 @@ Deno.test('BitSet: count returns correct number of set bits', () => {
 	assertEquals(bs.count(), 0)
 })
 
-Deno.test('BitSet: items returns all set bits in order', () => {
+Deno.test('BitSet - items returns all set bits in order', () => {
 	const bs = BitSet.empty()
 	assertEquals(Array.from(bs.items()), [])
 
@@ -141,7 +141,7 @@ Deno.test('BitSet: items returns all set bits in order', () => {
 	assertEquals(Array.from(bs.items()), [1, 5, 33, 100])
 })
 
-Deno.test('BitSet: static union combines multiple sets', () => {
+Deno.test('BitSet - static union combines multiple sets', () => {
 	const bs1 = BitSet.empty()
 	bs1.add(0)
 	bs1.add(1)
@@ -180,7 +180,7 @@ Deno.test('BitSet: static union combines multiple sets', () => {
 	assertEquals(result.count(), 7)
 })
 
-Deno.test('BitSet: static intersect finds common bits in multiple sets', () => {
+Deno.test('BitSet - static intersect finds common bits in multiple sets', () => {
 	const bs1 = BitSet.empty()
 	bs1.add(0)
 	bs1.add(1)

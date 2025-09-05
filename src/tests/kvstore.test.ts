@@ -8,13 +8,13 @@ import { delay } from '@std/async/delay'
 
 import KVStore from '../kvstore.ts'
 
-Deno.test('KVStore: setString and getString', () => {
+Deno.test('KVStore - setString and getString', () => {
 	const kv = new KVStore()
 	kv.setString('name', 'Deno')
 	assertEquals(kv.getString('name'), 'Deno')
 })
 
-Deno.test('KVStore: getString throws error for non-string type', () => {
+Deno.test('KVStore - getString throws error for non-string type', () => {
 	const kv = new KVStore()
 	kv.pushArray('list', ['1', '2'])
 	assertThrows(
@@ -24,7 +24,7 @@ Deno.test('KVStore: getString throws error for non-string type', () => {
 	)
 })
 
-Deno.test('KVStore: delete string key', () => {
+Deno.test('KVStore - delete string key', () => {
 	const kv = new KVStore()
 	kv.setString('name', 'Deno')
 	assertEquals(kv.getString('name'), 'Deno')
@@ -33,7 +33,7 @@ Deno.test('KVStore: delete string key', () => {
 	assertThrows(() => kv.getString('name'), Error, 'Key does not exists')
 })
 
-Deno.test('KVStore: pushArray and popArray', () => {
+Deno.test('KVStore - pushArray and popArray', () => {
 	const kv = new KVStore()
 	kv.pushArray('myList', ['a', 'b'])
 	kv.pushArray('myList', ['c'])
@@ -43,7 +43,7 @@ Deno.test('KVStore: pushArray and popArray', () => {
 	assertEquals(kv.popArray('myList'), null)
 })
 
-Deno.test('KVStore: popArray throws error for non-list type', () => {
+Deno.test('KVStore - popArray throws error for non-list type', () => {
 	const kv = new KVStore()
 	kv.setString('name', 'Deno')
 	assertThrows(
@@ -53,13 +53,13 @@ Deno.test('KVStore: popArray throws error for non-list type', () => {
 	)
 })
 
-Deno.test('KVStore: sliceArray', () => {
+Deno.test('KVStore - sliceArray', () => {
 	const kv = new KVStore()
 	kv.pushArray('myList', ['a', 'b', 'c', 'd', 'e'])
 	assertEquals(kv.sliceArray('myList', 1, 3), ['b', 'c', 'd'])
 })
 
-Deno.test('KVStore: sliceArray throws error for out of bounds', () => {
+Deno.test('KVStore - sliceArray throws error for out of bounds', () => {
 	const kv = new KVStore()
 	kv.pushArray('myList', ['a', 'b'])
 	assertThrows(
@@ -70,14 +70,14 @@ Deno.test('KVStore: sliceArray throws error for out of bounds', () => {
 	assertThrows(() => kv.sliceArray('myList', 0, 2), Error, 'Index out of bound')
 })
 
-Deno.test('KVStore: addSet and getSet', () => {
+Deno.test('KVStore - addSet and getSet', () => {
 	const kv = new KVStore()
 	kv.addSet('mySet', ['apple', 'banana'])
 	kv.addSet('mySet', ['orange', 'banana'])
 	assertEquals(kv.getSet('mySet').sort(), ['apple', 'banana', 'orange'].sort())
 })
 
-Deno.test('KVStore: removeSet', () => {
+Deno.test('KVStore - removeSet', () => {
 	const kv = new KVStore()
 	kv.addSet('mySet', ['apple', 'banana', 'orange'])
 	kv.removeSet('mySet', ['banana'])
@@ -86,7 +86,7 @@ Deno.test('KVStore: removeSet', () => {
 	assertEquals(kv.getSet('mySet').sort(), ['apple', 'orange'].sort())
 })
 
-Deno.test('KVStore: getSet throws error for non-set type', () => {
+Deno.test('KVStore - getSet throws error for non-set type', () => {
 	const kv = new KVStore()
 	kv.setString('name', 'Deno')
 	assertThrows(
@@ -96,21 +96,21 @@ Deno.test('KVStore: getSet throws error for non-set type', () => {
 	)
 })
 
-Deno.test('KVStore: unionSet', () => {
+Deno.test('KVStore - unionSet', () => {
 	const kv = new KVStore()
 	kv.addSet('set1', ['a', 'b'])
 	kv.addSet('set2', ['b', 'c'])
 	assertEquals(kv.unionSet(['set1', 'set2']).sort(), ['a', 'b', 'c'].sort())
 })
 
-Deno.test('KVStore: intersectSet', () => {
+Deno.test('KVStore - intersectSet', () => {
 	const kv = new KVStore()
 	kv.addSet('set1', ['a', 'b', 'c'])
 	kv.addSet('set2', ['b', 'c', 'd'])
 	assertEquals(kv.intersectSet(['set1', 'set2']).sort(), ['b', 'c'].sort())
 })
 
-Deno.test('KVStore: keys', () => {
+Deno.test('KVStore - keys', () => {
 	const kv = new KVStore()
 	kv.setString('name', 'Deno')
 	kv.pushArray('list', ['1'])
@@ -120,7 +120,7 @@ Deno.test('KVStore: keys', () => {
 	assertEquals(kv.keys().sort(), ['list', 'set'].sort())
 })
 
-Deno.test('KVStore: expireKey and ttl', async () => {
+Deno.test('KVStore - expireKey and ttl', async () => {
 	const kv = new KVStore()
 	kv.setString('name', 'Deno')
 	kv.expireKey('name', 1) // expires in 1 second
@@ -137,7 +137,7 @@ Deno.test('KVStore: expireKey and ttl', async () => {
 	assertEquals(kv.keys().length, 0)
 })
 
-Deno.test('KVStore: update expiry', async () => {
+Deno.test('KVStore - update expiry', async () => {
 	const kv = new KVStore()
 	kv.setString('name', 'Deno')
 	kv.expireKey('name', 1)
@@ -154,7 +154,7 @@ Deno.test('KVStore: update expiry', async () => {
 	assertThrows(() => kv.getString('name'), Error, 'Key does not exists')
 })
 
-Deno.test('KVStore: clearExpired is called by operations', async () => {
+Deno.test('KVStore - clearExpired is called by operations', async () => {
 	const kv = new KVStore()
 	kv.setString('key1', 'value1')
 	kv.expireKey('key1', 0.1)
@@ -163,7 +163,7 @@ Deno.test('KVStore: clearExpired is called by operations', async () => {
 	assertEquals(kv.keys(), ['key2'])
 })
 
-Deno.test('KVStore: delete for different types', () => {
+Deno.test('KVStore - delete for different types', () => {
 	const kv = new KVStore()
 
 	// String
@@ -182,7 +182,7 @@ Deno.test('KVStore: delete for different types', () => {
 	assertThrows(() => kv.getSet('mySet'))
 })
 
-Deno.test('KVStore: stringPool cleanup on delete', () => {
+Deno.test('KVStore - stringPool cleanup on delete', () => {
 	const kv = new KVStore()
 	kv.setString('key1', 'value1')
 	kv.pushArray('key2', ['item1', 'item2'])
@@ -210,7 +210,7 @@ Deno.test('KVStore: stringPool cleanup on delete', () => {
 	assertEquals(kv['stringPool']['freeIndices'].len, size)
 })
 
-Deno.test('KVStore: deleting a key with expiry removes it from heap', async () => {
+Deno.test('KVStore - deleting a key with expiry removes it from heap', async () => {
 	const kv = new KVStore()
 	kv.setString('key1', 'value1')
 	kv.expireKey('key1', 1)
@@ -221,7 +221,7 @@ Deno.test('KVStore: deleting a key with expiry removes it from heap', async () =
 	assertEquals(kv.keys().length, 0)
 })
 
-Deno.test('KVStore: complex expiry interaction (siftUp/siftDown)', async () => {
+Deno.test('KVStore - complex expiry interaction (siftUp/siftDown)', async () => {
 	const kv = new KVStore()
 	kv.setString('k1', 'v1')
 	kv.setString('k2', 'v2')
@@ -254,14 +254,14 @@ Deno.test('KVStore: complex expiry interaction (siftUp/siftDown)', async () => {
 	assertEquals(kv.keys().length, 0)
 })
 
-Deno.test('KVStore: pushing to an existing list without deleting the original values', () => {
+Deno.test('KVStore - pushing to an existing list without deleting the original values', () => {
 	const kv = new KVStore()
 	kv.pushArray('myList', ['a', 'b'])
 	kv.pushArray('myList', ['c', 'd']) // Appends to existing list
 	assertEquals(kv.sliceArray('myList', 0, 3), ['a', 'b', 'c', 'd'])
 })
 
-Deno.test('KVStore: adding to an existing set without deleting the original values', () => {
+Deno.test('KVStore - adding to an existing set without deleting the original values', () => {
 	const kv = new KVStore()
 	kv.addSet('mySet', ['apple', 'banana'])
 	kv.addSet('mySet', ['orange', 'grape']) // Adds to existing set
@@ -271,7 +271,7 @@ Deno.test('KVStore: adding to an existing set without deleting the original valu
 	)
 })
 
-Deno.test('KVStore: trying to pushArray on a string key should throw', () => {
+Deno.test('KVStore - trying to pushArray on a string key should throw', () => {
 	const kv = new KVStore()
 	kv.setString('myKey', 'hello')
 	assertThrows(
@@ -281,7 +281,7 @@ Deno.test('KVStore: trying to pushArray on a string key should throw', () => {
 	)
 })
 
-Deno.test('KVStore: trying to addSet on a string key should throw', () => {
+Deno.test('KVStore - trying to addSet on a string key should throw', () => {
 	const kv = new KVStore()
 	kv.setString('myKey', 'hello')
 	assertThrows(
@@ -291,7 +291,7 @@ Deno.test('KVStore: trying to addSet on a string key should throw', () => {
 	)
 })
 
-Deno.test('KVStore: trying to setString on a list key should overwrite', () => {
+Deno.test('KVStore - trying to setString on a list key should overwrite', () => {
 	const kv = new KVStore()
 	kv.pushArray('myKey', ['hello'])
 	kv.setString('myKey', 'world')
@@ -303,7 +303,7 @@ Deno.test('KVStore: trying to setString on a list key should overwrite', () => {
 	)
 })
 
-Deno.test('KVStore: trying to setString on a set key should overwrite', () => {
+Deno.test('KVStore - trying to setString on a set key should overwrite', () => {
 	const kv = new KVStore()
 	kv.addSet('myKey', ['hello'])
 	kv.setString('myKey', 'world')
@@ -315,7 +315,7 @@ Deno.test('KVStore: trying to setString on a set key should overwrite', () => {
 	)
 })
 
-Deno.test('KVStore: expireKey on a non-existent key throws an error', () => {
+Deno.test('KVStore - expireKey on a non-existent key throws an error', () => {
 	const kv = new KVStore()
 	assertThrows(
 		() => kv.expireKey('nonExistentKey', 10),
@@ -330,7 +330,7 @@ Deno.test('KVStore: expireKey on a non-existent key throws an error', () => {
 	)
 })
 
-Deno.test('KVStore: ttl on a key without expiry returns null', () => {
+Deno.test('KVStore - ttl on a key without expiry returns null', () => {
 	const kv = new KVStore()
 	kv.setString('myKey', 'someValue')
 	assertEquals(kv.ttl('myKey'), -1)
@@ -338,7 +338,7 @@ Deno.test('KVStore: ttl on a key without expiry returns null', () => {
 	assertEquals(kv.ttl('anotherKey'), -1)
 })
 
-Deno.test('KVStore: serialize and deserialize an empty store', () => {
+Deno.test('KVStore - serialize and deserialize an empty store', () => {
 	const kv = new KVStore()
 	const serialized = kv.serialize()
 	const deserializedKv = KVStore.deserialize(serialized)
@@ -348,7 +348,7 @@ Deno.test('KVStore: serialize and deserialize an empty store', () => {
 	assertEquals(deserializedKv['heap'].len, 0)
 })
 
-Deno.test('KVStore: (de)serialize with string values', () => {
+Deno.test('KVStore - (de)serialize with string values', () => {
 	const kv = new KVStore()
 	kv.setString('name', 'Deno')
 	kv.setString('greeting', 'Hello World')
@@ -361,7 +361,7 @@ Deno.test('KVStore: (de)serialize with string values', () => {
 	assertEquals(deserializedKv.keys().sort(), ['greeting', 'name'].sort())
 })
 
-Deno.test('KVStore: (de)serialize with list values', () => {
+Deno.test('KVStore - (de)serialize with list values', () => {
 	const kv = new KVStore()
 	kv.pushArray('myList', ['a', 'b', 'c'])
 	kv.pushArray('anotherList', ['x', 'y'])
@@ -374,7 +374,7 @@ Deno.test('KVStore: (de)serialize with list values', () => {
 	assertEquals(deserializedKv.keys().sort(), ['anotherList', 'myList'].sort())
 })
 
-Deno.test('KVStore: (de)serialize with set values', () => {
+Deno.test('KVStore - (de)serialize with set values', () => {
 	const kv = new KVStore()
 	kv.addSet('mySet', ['apple', 'banana'])
 	kv.addSet('anotherSet', ['red', 'green'])
@@ -393,7 +393,7 @@ Deno.test('KVStore: (de)serialize with set values', () => {
 	assertEquals(deserializedKv.keys().sort(), ['anotherSet', 'mySet'].sort())
 })
 
-Deno.test('KVStore: (de)serialize with mixed data types', () => {
+Deno.test('KVStore - (de)serialize with mixed data types', () => {
 	const kv = new KVStore()
 	kv.setString('strKey', 'stringValue')
 	kv.pushArray('listKey', ['listVal1', 'listVal2'])
@@ -417,7 +417,7 @@ Deno.test('KVStore: (de)serialize with mixed data types', () => {
 	)
 })
 
-Deno.test('KVStore: (de)serialize with expiry preserving heap invariant', async () => {
+Deno.test('KVStore - (de)serialize with expiry preserving heap invariant', async () => {
 	const kv = new KVStore()
 	kv.setString('key1', 'value1')
 	kv.expireKey('key1', 3) // Expires in 3 seconds
@@ -488,7 +488,7 @@ Deno.test('KVStore: (de)serialize with expiry preserving heap invariant', async 
 	)
 })
 
-Deno.test('KVStore: (de)serialize with a key that had expiry but was deleted', () => {
+Deno.test('KVStore - (de)serialize with a key that had expiry but was deleted', () => {
 	const kv = new KVStore()
 	kv.setString('key1', 'value1')
 	kv.expireKey('key1', 1)

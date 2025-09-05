@@ -1,7 +1,7 @@
-import { assertThrows } from '@std/assert'
-import { assertNever } from '../utils.ts'
+import { assertEquals, assertThrows } from '@std/assert'
+import { assertClass, assertNever } from '../utils.ts'
 
-Deno.test('assertNever: exhaustive cases', () => {
+Deno.test('assertNever - exhaustive cases', () => {
 	const data = ['type1', 'type2', 'type3'] as const
 	const test = data[Math.random() * 0 + 1]
 
@@ -17,7 +17,7 @@ Deno.test('assertNever: exhaustive cases', () => {
 	}
 })
 
-Deno.test('assertNever: missing cases', () => {
+Deno.test('assertNever - missing cases', () => {
 	const data = ['type1', 'type2', 'type3'] as const
 	const test = data[Math.random() * 0 + 1]
 
@@ -35,5 +35,62 @@ Deno.test('assertNever: missing cases', () => {
 		},
 		Error,
 		'Unreachable code reached',
+	)
+})
+
+class MyClass {
+	public name = 'MyClass'
+}
+
+class AnotherClass {
+	public name = 'AnotherClass'
+}
+
+Deno.test('assertClass - correct class', () => {
+	const instance = new MyClass()
+	const result = assertClass(MyClass, instance)
+	assertEquals(result, instance)
+})
+
+Deno.test('assertClass - wrong class', () => {
+	const instance = new AnotherClass()
+	assertThrows(
+		() => assertClass(MyClass, instance),
+		Error,
+		`"[object Object]" is not of class "MyClass"`,
+	)
+})
+
+Deno.test('assertClass - primitive instances', () => {
+	assertThrows(
+		() => assertClass(MyClass, null),
+		Error,
+		`"null" is not of class "MyClass"`,
+	)
+
+	assertThrows(
+		() => assertClass(MyClass, undefined),
+		Error,
+		`"undefined" is not of class "MyClass"`,
+	)
+
+	assertThrows(
+		() => assertClass(MyClass, 'a string'),
+		Error,
+		`"a string" is not of class "MyClass"`,
+	)
+
+	assertThrows(
+		() => assertClass(MyClass, 123),
+		Error,
+		`"123" is not of class "MyClass"`,
+	)
+})
+
+Deno.test('assertClass - object literal instance', () => {
+	assertThrows(
+		() => assertClass(MyClass, { name: 'MyClass' }),
+		Error,
+		`"[object Object]" is not of class "MyClass"`,
 	)
 })

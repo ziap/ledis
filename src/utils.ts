@@ -10,5 +10,5 @@ export function assertClass<T>(
 		return instance
 	}
 
-	throw new Error(`"${instance}" is not of class "${cls}"`)
+	throw new Error(`"${instance}" is not of class "${cls.name}"`)
 }

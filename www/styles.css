@@ -37,10 +37,11 @@ body {
   gap: 1rem;
 }
 
-.terminal {
+#terminal {
   border: solid #1f1f1f 3px;
   flex: 1;
   border-radius: 0.5rem;
+  overflow-y: auto;
 }
 
 #input-form {
@@ -64,7 +65,45 @@ body {
   padding: 0.5rem 1.5rem;
   background: red;
   border-radius: 0.25rem;
-  background: #6ebcf8;
+  background: #1aa8f4;
   color: #000;
   font-weight: 700;
+  transition: background 300ms;
+  cursor: pointer;
+
+  &:hover {
+    background: #0784c3;
+  }
+}
+
+.result {
+  padding: 1rem;
+  border-bottom: solid #282828 3px;
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+
+  &>svg {
+    fill: #fff;
+  }
+}
+
+.result-query {
+  font-size: 1.1892rem;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  flex: 1;
+}
+
+.result-body {
+  margin-top: 1rem;
+}
+
+.result-list {
+  margin: 0;
 }
