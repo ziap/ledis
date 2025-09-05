@@ -1,0 +1,197 @@
+import KVStore from './kvstore.ts'
+
+function tokenize(input: string): string[] {
+	const tokens: string[] = []
+	let currentToken = ''
+	let quoteOpen = false
+	let escaping = false
+	let force = false
+
+	for (const char of input) {
+		if (escaping) {
+			currentToken += char
+			escaping = false
+		} else if (char === '\\' && !escaping) {
+			escaping = true
+		} else if (char === '"') {
+			quoteOpen = !quoteOpen
+			force = true
+		} else if (' \t\n\r\x0b\x0c'.includes(char) && !quoteOpen) {
+			if (currentToken.length > 0 || force) {
+				tokens.push(currentToken)
+				currentToken = ''
+				force = false
+			}
+		} else {
+			currentToken += char
+		}
+	}
+
+	if (currentToken.length > 0 || force) {
+		tokens.push(currentToken)
+	}
+
+	if (quoteOpen || escaping) {
+		throw new Error('Unterminated string input')
+	}
+
+	return tokens
+}
+
+type QueryResult = {
+	kind: 'info'
+	message: string
+} | {
+	kind: 'error'
+	message: string
+} | {
+	kind: 'result'
+	data: string[]
+}
+
+function getParam(params: string[], idx: number, name: string): string {
+	if (idx >= params.length) {
+		throw new Error(`Parameter '${name}' not provided`)
+	}
+
+	return params[idx]
+}
+
+function getIntParam(params: string[], idx: number, name: string): number {
+	const param = parseInt(getParam(params, idx, name))
+	if (isNaN(param)) {
+		throw new Error(`Parameter '${name}' is not a number`)
+	}
+
+	return param
+}
+
+export default abstract class Context {
+	store = new KVStore()
+	abstract save(data: string): Promise<void>
+	abstract load(): Promise<string>
+
+	async executeQuery(query: string): Promise<QueryResult> {
+		try {
+			const tokens = tokenize(query)
+			if (tokens.length < 1) {
+				return { kind: 'error', message: 'Empty query' }
+			}
+
+			const cmd = tokens[0].toUpperCase()
+			const params = tokens.slice(1)
+
+			switch (cmd) {
+				case 'SET': {
+					const key = getParam(params, 0, 'key')
+					const value = getParam(params, 1, 'value')
+
+					this.store.setString(key, value)
+					return { kind: 'info', message: 'OK' }
+				}
+				case 'GET': {
+					const key = getParam(params, 0, 'key')
+					const value = this.store.getString(key)
+					return { kind: 'result', data: [value] }
+				}
+				case 'RPUSH': {
+					const key = getParam(params, 0, 'key')
+					const args = params.slice(1)
+
+					this.store.pushArray(key, args)
+					return { kind: 'info', message: 'OK' }
+				}
+				case 'RPOP': {
+					const key = getParam(params, 0, 'key')
+					const result = this.store.popArray(key)
+
+					if (result === null) {
+						return { kind: 'result', data: [] }
+					} else {
+						return { kind: 'result', data: [result] }
+					}
+				}
+				case 'LRANGE': {
+					const key = getParam(params, 0, 'key')
+					const start = getIntParam(params, 1, 'start')
+					const end = getIntParam(params, 2, 'end')
+
+					const result = this.store.sliceArray(key, start, end)
+					return { kind: 'result', data: result }
+				}
+				case 'SADD': {
+					const key = getParam(params, 0, 'key')
+					const args = params.slice(1)
+
+					this.store.addSet(key, args)
+					return { kind: 'info', message: 'OK' }
+				}
+				case 'SREM': {
+					const key = getParam(params, 0, 'key')
+					const args = params.slice(1)
+
+					this.store.removeSet(key, args)
+					return { kind: 'info', message: 'OK' }
+				}
+				case 'SMEMBERS': {
+					const key = getParam(params, 0, 'key')
+					const result = this.store.getSet(key)
+					return { kind: 'result', data: result }
+				}
+				case 'SINTER': {
+					const result = this.store.intersectSet(params)
+					return { kind: 'result', data: result }
+				}
+				case 'SUNION': {
+					const result = this.store.unionSet(params)
+					return { kind: 'result', data: result }
+				}
+				case 'KEYS': {
+					const result = this.store.keys()
+					return { kind: 'result', data: result }
+				}
+				case 'DEL': {
+					const key = getParam(params, 0, 'key')
+					this.store.delete(key)
+					return { kind: 'info', message: 'OK' }
+				}
+				case 'EXPIRE': {
+					const key = getParam(params, 0, 'key')
+					const seconds = getIntParam(params, 1, 'seconds')
+					this.store.expireKey(key, seconds)
+					return { kind: 'info', message: 'OK' }
+				}
+				case 'TTL': {
+					const key = getParam(params, 0, 'key')
+					const result = this.store.ttl(key)
+					return { kind: 'result', data: [result.toFixed()] }
+				}
+				case 'SAVE': {
+					const data = this.store.serialize()
+					await this.save(JSON.stringify(data))
+					return { kind: 'info', message: 'OK' }
+				}
+				case 'RESTORE': {
+					const data = await this.load()
+					this.store = KVStore.deserialize(JSON.parse(data))
+					return { kind: 'info', message: 'OK' }
+				}
+				default: {
+					return { kind: 'error', message: `Unsupported command: ${cmd}` }
+				}
+			}
+		} catch (e: unknown) {
+			if (e instanceof Error) {
+				return {
+					kind: 'error',
+					message: e.message,
+				}
+			} else {
+				return {
+					kind: 'error',
+					message: 'An unknown error occurred',
+				}
+			}
+		}
+	}
+}

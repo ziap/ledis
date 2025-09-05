@@ -438,14 +438,14 @@ export default class KVStore {
 		return result
 	}
 
-	ttl(key: string): number | null {
+	ttl(key: string): number {
 		this.clearExpired()
 		const idx = this.stringPool.stringToIndex(key)
-		if (idx === null || idx >= this.data.length) return null
+		if (idx === null || idx >= this.data.length) return -2
 		const entry = this.data[idx]
 		const currentTime = Date.now() / 1000
 
-		if (entry.expiry === null) return null
+		if (entry.expiry === null) return -1
 		return entry.expiry.expireTime - currentTime
 	}
 

@@ -126,12 +126,12 @@ Deno.test('KVStore: expireKey and ttl', async () => {
 	kv.expireKey('name', 1) // expires in 1 second
 
 	const ttl1 = kv.ttl('name')
-	assert(ttl1 !== null && ttl1 > 0.5 && ttl1 <= 1)
+	assert(ttl1 > 0.5 && ttl1 <= 1)
 
 	await delay(1100) // wait for expiry
 
 	const ttl2 = kv.ttl('name')
-	assertEquals(ttl2, null) // Should be expired
+	assertEquals(ttl2, -2) // Should be expired
 
 	assertThrows(() => kv.getString('name'), Error, 'Key does not exists')
 	assertEquals(kv.keys().length, 0)
@@ -144,11 +144,11 @@ Deno.test('KVStore: update expiry', async () => {
 	await delay(500)
 	kv.expireKey('name', 2) // Extend expiry
 	const ttl1 = kv.ttl('name')
-	assert(ttl1 !== null && ttl1 > 1.5 && ttl1 <= 2)
+	assert(ttl1 > 1.5 && ttl1 <= 2)
 	await delay(1600) // Original expiry would have passed
 	assert(kv.getString('name') === 'Deno')
 	const ttl2 = kv.ttl('name')
-	assert(ttl2 !== null && ttl2 < 0.5)
+	assert(ttl2 < 0.5)
 
 	await delay(500) // Wait for new expiry
 	assertThrows(() => kv.getString('name'), Error, 'Key does not exists')
@@ -236,20 +236,20 @@ Deno.test('KVStore: complex expiry interaction (siftUp/siftDown)', async () => {
 	assertEquals(kv.getString('k3'), 'v3')
 
 	await delay(1100) // k2 should expire
-	assertEquals(kv.ttl('k2'), null)
+	assertEquals(kv.ttl('k2'), -2)
 	assertEquals(kv.getString('k1'), 'v1')
 	assertEquals(kv.getString('k3'), 'v3')
 	assertThrows(() => kv.getString('k2'))
 	assertEquals(kv.keys().sort(), ['k1', 'k3'].sort())
 
 	await delay(1000) // k3 should expire
-	assertEquals(kv.ttl('k3'), null)
+	assertEquals(kv.ttl('k3'), -2)
 	assertEquals(kv.getString('k1'), 'v1')
 	assertThrows(() => kv.getString('k3'))
 	assertEquals(kv.keys().sort(), ['k1'].sort())
 
 	await delay(1000) // k1 should expire
-	assertEquals(kv.ttl('k1'), null)
+	assertEquals(kv.ttl('k1'), -2)
 	assertThrows(() => kv.getString('k1'))
 	assertEquals(kv.keys().length, 0)
 })
@@ -333,17 +333,9 @@ Deno.test('KVStore: expireKey on a non-existent key throws an error', () => {
 Deno.test('KVStore: ttl on a key without expiry returns null', () => {
 	const kv = new KVStore()
 	kv.setString('myKey', 'someValue')
-	assertEquals(
-		kv.ttl('myKey'),
-		null,
-		'TTL for a non-expiring key should be null',
-	)
+	assertEquals(kv.ttl('myKey'), -1)
 	kv.pushArray('anotherKey', ['item1'])
-	assertEquals(
-		kv.ttl('anotherKey'),
-		null,
-		'TTL for a non-expiring list key should be null',
-	)
+	assertEquals(kv.ttl('anotherKey'), -1)
 })
 
 Deno.test('KVStore: serialize and deserialize an empty store', () => {
@@ -441,9 +433,9 @@ Deno.test('KVStore: (de)serialize with expiry preserving heap invariant', async 
 	const initialTtl2 = kv.ttl('key2')
 	const initialTtl3 = kv.ttl('key3')
 
-	assert(initialTtl1 !== null && initialTtl1 > 2.5)
-	assert(initialTtl2 !== null && initialTtl2 > 0.5)
-	assert(initialTtl3 !== null && initialTtl3 > 1.5)
+	assert(initialTtl1 > 2.5)
+	assert(initialTtl2 > 0.5)
+	assert(initialTtl3 > 1.5)
 
 	const serialized = kv.serialize()
 	const deserializedKv = KVStore.deserialize(serialized)
@@ -459,9 +451,9 @@ Deno.test('KVStore: (de)serialize with expiry preserving heap invariant', async 
 	const deserializedTtl3 = deserializedKv.ttl('key3')
 
 	// TTLs should be close to their original values (minus time taken for serialization/deserialization)
-	assert(deserializedTtl1 !== null && deserializedTtl1 <= initialTtl1!)
-	assert(deserializedTtl2 !== null && deserializedTtl2 <= initialTtl2!)
-	assert(deserializedTtl3 !== null && deserializedTtl3 <= initialTtl3!)
+	assert(deserializedTtl1 <= initialTtl1)
+	assert(deserializedTtl2 <= initialTtl2)
+	assert(deserializedTtl3 <= initialTtl3)
 
 	// Advance time to check expiry order
 	await delay(1100) // key2 should expire
@@ -469,7 +461,7 @@ Deno.test('KVStore: (de)serialize with expiry preserving heap invariant', async 
 	// An operation on deserializedKv should trigger clearExpired
 	deserializedKv.setString('tempKey', 'tempValue')
 
-	assertEquals(deserializedKv.ttl('key2'), null)
+	assertEquals(deserializedKv.ttl('key2'), -2)
 	assertThrows(() => deserializedKv.getString('key2'))
 	assertEquals(deserializedKv.keys().sort(), ['key1', 'key3', 'tempKey'].sort())
 
@@ -477,7 +469,7 @@ Deno.test('KVStore: (de)serialize with expiry preserving heap invariant', async 
 
 	deserializedKv.setString('anotherTemp', 'anotherValue')
 
-	assertEquals(deserializedKv.ttl('key3'), null)
+	assertEquals(deserializedKv.ttl('key3'), -2)
 	assertThrows(() => deserializedKv.getString('key3'))
 	assertEquals(
 		deserializedKv.keys().sort(),
@@ -488,7 +480,7 @@ Deno.test('KVStore: (de)serialize with expiry preserving heap invariant', async 
 
 	deserializedKv.setString('finalTemp', 'finalValue')
 
-	assertEquals(deserializedKv.ttl('key1'), null)
+	assertEquals(deserializedKv.ttl('key1'), -2)
 	assertThrows(() => deserializedKv.getString('key1'))
 	assertEquals(
 		deserializedKv.keys().sort(),
