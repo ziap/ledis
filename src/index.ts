@@ -1,23 +1,7 @@
 /// <reference lib="dom" />
 
-import Context from './context.ts'
+import IDBContext from './idb-context.ts'
 import { assertClass, assertNever, assertNonNull } from './utils.ts'
-
-class TestContext extends Context {
-	public savedData: string | null = null
-
-	save(data: string): Promise<void> {
-		this.savedData = data
-		return Promise.resolve()
-	}
-
-	load(): Promise<string> {
-		if (this.savedData === null) {
-			return Promise.reject(new Error('No data has been saved to this context'))
-		}
-		return Promise.resolve(this.savedData)
-	}
-}
 
 const form = assertClass(HTMLFormElement, document.getElementById('input-form'))
 const input = assertClass(
@@ -37,7 +21,13 @@ const valueTemplate = assertClass(
 
 const terminal = document.getElementById('terminal') ?? assertNonNull()
 
-const ctx = new TestContext()
+const ctx = await IDBContext.new()
+
+try {
+	await ctx.executeQuery('RESTORE')
+} catch {
+	// The database is loaded for the first time
+}
 
 form.addEventListener('submit', (e) => {
 	const cloned = assertClass(

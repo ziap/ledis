@@ -76,7 +76,8 @@ function getIntParam(params: string[], idx: number, name: string): number {
 }
 
 export default abstract class Context {
-	store = new KVStore()
+	private store = new KVStore()
+
 	abstract save(data: string): Promise<void>
 	abstract load(): Promise<string>
 

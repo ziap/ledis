@@ -16,6 +16,7 @@ Live demo: <https://ziap.github.io/ledis>.
 - **Data Persistence**: The entire database can be serialized to a string and later restored, providing a way to save and load data.
 - **Efficient Memory Management**: A string pool with custom garbage collection is used to ensure that each unique string is stored only once, reducing memory overhead and improving some operations.
 - **Custom Storage Back-end**: The system is designed for extensibility, allowing for custom storage back-ends and integration with various storage solutions like file systems, databases, or cloud services.
+- **In-browser CLI**: A polished web-based user interface for entering commands, displaying formatted results, and IndexedDB persistence snapshot storage.
 - **CI/CD for Testing and Deployment**: The repository is configured with a (CI/CD) pipeline to automate the testing and deployment processes.
 
 ## Quick Start
