@@ -65,7 +65,7 @@ body {
 }
 
 .submit-button {
-	padding: 0.5rem 1.5rem;
+	padding: 0.5rem 1rem;
 	background: red;
 	border-radius: 0.25rem;
 	background: #1aa8f4;
@@ -109,4 +109,19 @@ body {
 
 .result-list {
 	margin: 0;
+}
+
+.result-values {
+	display: flex;
+	flex-direction: column;
+	width: fit-content;
+	gap: 0.5rem;
+}
+
+.result-item {
+	margin: 0;
+	padding: 0.25rem;
+	font-size: 1rem;
+	background: #282828;
+	border-radius: 0.25rem;
 }

@@ -12,3 +12,7 @@ export function assertClass<T>(
 
 	throw new Error(`"${instance}" is not of class "${cls.name}"`)
 }
+
+export function assertNonNull(): never {
+	throw new Error('Non-null assertion failed')
+}

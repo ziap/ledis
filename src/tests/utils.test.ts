@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from '@std/assert'
-import { assertClass, assertNever } from '../utils.ts'
+import { assertClass, assertNever, assertNonNull } from '../utils.ts'
 
 Deno.test('assertNever - exhaustive cases', () => {
 	const data = ['type1', 'type2', 'type3'] as const
@@ -92,5 +92,30 @@ Deno.test('assertClass - object literal instance', () => {
 		() => assertClass(MyClass, { name: 'MyClass' }),
 		Error,
 		`"[object Object]" is not of class "MyClass"`,
+	)
+})
+
+Deno.test('assertNonNull - non-null values', () => {
+	const data = [0, null, undefined] as const
+	const x0 = data[Math.random() * 0 + 0]
+
+	assertEquals(x0 ?? assertNonNull(), x0)
+})
+
+Deno.test('assertNonNull - null or undefined', () => {
+	const data = [0, null, undefined] as const
+	const x1 = data[Math.random() * 0 + 1]
+	const x2 = data[Math.random() * 0 + 2]
+
+	assertThrows(
+		() => (x1 ?? assertNonNull()),
+		Error,
+		'Non-null assertion failed',
+	)
+
+	assertThrows(
+		() => (x2 ?? assertNonNull()),
+		Error,
+		'Non-null assertion failed',
 	)
 })

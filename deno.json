@@ -1,4 +1,7 @@
 {
+	"compilerOptions": {
+		"lib": ["deno.window", "deno.ns"]
+	},
 	"imports": {
 		"@std/assert": "jsr:@std/assert@^1.0.14",
 		"@std/async": "jsr:@std/async@^1.0.14"
@@ -23,7 +26,8 @@
 				"explicit-module-boundary-types",
 				"no-eval",
 				"no-sparse-arrays",
-				"single-var-declarator"
+				"single-var-declarator",
+				"no-non-null-assertion"
 			]
 		}
 	},

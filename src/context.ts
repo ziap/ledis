@@ -11,12 +11,21 @@ function tokenize(input: string): string[] {
 		if (escaping) {
 			currentToken += char
 			escaping = false
-		} else if (char === '\\' && !escaping) {
+			continue
+		}
+
+		if (char === '\\') {
 			escaping = true
-		} else if (char === '"') {
+			continue
+		}
+
+		if (char === '"') {
 			quoteOpen = !quoteOpen
 			force = true
-		} else if (' \t\n\r\x0b\x0c'.includes(char) && !quoteOpen) {
+			continue
+		}
+
+		if (' \t\n\r\x0b\x0c'.includes(char) && !quoteOpen) {
 			if (currentToken.length > 0 || force) {
 				tokens.push(currentToken)
 				currentToken = ''

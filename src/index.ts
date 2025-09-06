@@ -1,5 +1,7 @@
+/// <reference lib="dom" />
+
 import Context from './context.ts'
-import { assertClass, assertNever } from './utils.ts'
+import { assertClass, assertNever, assertNonNull } from './utils.ts'
 
 class TestContext extends Context {
 	public savedData: string | null = null
@@ -23,19 +25,30 @@ const input = assertClass(
 	document.getElementById('input-query'),
 )
 
-const template = assertClass(
+const resultTemplate = assertClass(
 	HTMLTemplateElement,
 	document.getElementById('result-template'),
 )
-const terminal = document.getElementById('terminal')!
+
+const valueTemplate = assertClass(
+	HTMLTemplateElement,
+	document.getElementById('result-value'),
+)
+
+const terminal = document.getElementById('terminal') ?? assertNonNull()
 
 const ctx = new TestContext()
 
 form.addEventListener('submit', (e) => {
-	const cloned = assertClass(DocumentFragment, template.content.cloneNode(true))
-	cloned.querySelector('.result-query')!.textContent = input.value
-	const container = cloned.querySelector('.result')!
-	const body = cloned.querySelector('.result-body')!
+	const cloned = assertClass(
+		DocumentFragment,
+		resultTemplate.content.cloneNode(true),
+	)
+
+	const query = cloned.querySelector('.result-query') ?? assertNonNull()
+	query.textContent = input.value
+	const container = cloned.querySelector('.result') ?? assertNonNull()
+	const body = cloned.querySelector('.result-body') ?? assertNonNull()
 	terminal.appendChild(cloned)
 
 	ctx.executeQuery(input.value).then((value) => {
@@ -56,10 +69,17 @@ form.addEventListener('submit', (e) => {
 						body.textContent = '<empty>'
 					} else {
 						const ol = document.createElement('ol')
+						ol.classList.add('result-values')
 						for (const item of value.data) {
-							const li = document.createElement('li')
-							li.textContent = item
-							ol.appendChild(li)
+							const valueCloned = assertClass(
+								DocumentFragment,
+								valueTemplate.content.cloneNode(true),
+							)
+
+							const elem = valueCloned.querySelector('.result-item') ??
+								assertNonNull()
+							elem.textContent = item
+							ol.appendChild(valueCloned)
 						}
 						body.appendChild(ol)
 					}

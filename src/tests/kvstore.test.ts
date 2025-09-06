@@ -3,6 +3,7 @@ import {
 	assertEquals,
 	assertNotEquals,
 	assertThrows,
+	fail,
 } from '@std/assert'
 import { delay } from '@std/async/delay'
 
@@ -84,6 +85,53 @@ Deno.test('KVStore - removeSet', () => {
 	assertEquals(kv.getSet('mySet').sort(), ['apple', 'orange'].sort())
 	kv.removeSet('mySet', ['grape']) // Remove non-existent item
 	assertEquals(kv.getSet('mySet').sort(), ['apple', 'orange'].sort())
+})
+
+Deno.test('KVStore - stringPool refcount with set operations', () => {
+	const kv = new KVStore()
+	const pool = kv['stringPool']
+
+	// Add a set with a duplicate item in the input array.
+	// Since a set only stores unique values, 'a' should only be counted once.
+	kv.addSet('mySet', ['a', 'b', 'a'])
+
+	const indexMySet = pool.stringToIndex('mySet') ?? fail()
+	const indexA = pool.stringToIndex('a') ?? fail()
+	const indexB = pool.stringToIndex('b') ?? fail()
+
+	// Check initial refcounts: 1 for the key, 1 for each unique value.
+	assertEquals(pool['refcount'].view[indexMySet], 1, 'refcount for set key')
+	assertEquals(pool['refcount'].view[indexA], 1, 'refcount for unique item "a"')
+	assertEquals(pool['refcount'].view[indexB], 1, 'refcount for unique item "b"')
+
+	// Attempting to add an item that's already in the set should not change the refcount.
+	kv.addSet('mySet', ['b'])
+	assertEquals(pool['refcount'].view[indexB], 1)
+
+	// Use the string 'a' in another key-value pair to increase its refcount.
+	kv.setString('anotherKey', 'a')
+	assertEquals(pool['refcount'].view[indexA], 2)
+
+	// Attempt to remove an item ('c') that doesn't exist in the set.
+	// This should not affect any refcounts.
+	kv.removeSet('mySet', ['c'])
+	assertEquals(pool.stringToIndex('c'), null)
+
+	// Attempt to remove 'a' from a different set where it doesn't exist.
+	// This should not decrement the refcount of 'a'.
+	kv.addSet('set2', ['z'])
+	kv.removeSet('set2', ['a'])
+	assertEquals(pool['refcount'].view[indexA], 2)
+
+	kv.removeSet('mySet', ['a'])
+	assertEquals(pool['refcount'].view[indexA], 1)
+
+	const freeLenBefore = pool['freeIndices'].len
+	kv.delete('anotherKey') // This removes 'anotherKey' and its value 'a'.
+
+	assertEquals(pool.stringToIndex('a'), null)
+	assertEquals(pool['refcount'].view[indexA], 0)
+	assertEquals(pool['freeIndices'].len, freeLenBefore + 2)
 })
 
 Deno.test('KVStore - getSet throws error for non-set type', () => {
@@ -533,16 +581,13 @@ Deno.test('KVStore - (de)serialize with shared strings', () => {
 	const pool = deserializedStore['stringPool']
 	// Order might differ, but content is key
 	assertEquals(new Set(pool.values), new Set(['a', 'b']))
-	const indexA = pool.stringToIndex('a')
-	const indexB = pool.stringToIndex('b')
-
-	assertNotEquals(indexA, null)
-	assertNotEquals(indexB, null)
+	const indexA = pool.stringToIndex('a') ?? fail()
+	const indexB = pool.stringToIndex('b') ?? fail()
 
 	// 'a' is used 3 times (key 'a', value 'a', value for 'b')
 	// 'b' is used 1 time (key 'b')
-	assertEquals(pool['refcount'].view[indexA!], 3)
-	assertEquals(pool['refcount'].view[indexB!], 1)
+	assertEquals(pool['refcount'].view[indexA], 3)
+	assertEquals(pool['refcount'].view[indexB], 1)
 	assertEquals(pool['freeIndices'].len, 0)
 })
 
@@ -577,9 +622,8 @@ Deno.test('KVStore - (de)serialize with list and set', () => {
 	}
 
 	for (const [str, count] of Object.entries(refcounts)) {
-		const index = pool.stringToIndex(str)
-		assertNotEquals(index, null)
-		assertEquals(pool['refcount'].view[index!], count)
+		const index = pool.stringToIndex(str) ?? fail()
+		assertEquals(pool['refcount'].view[index], count)
 	}
 
 	assertEquals(pool['freeIndices'].len, 0)
@@ -598,8 +642,8 @@ Deno.test('KVStore - (de)serialize with deleted items and freed indices', () => 
 	assertEquals(deserializedStore.keys(), ['c'])
 
 	const pool = deserializedStore['stringPool']
-	const indexC = pool.stringToIndex('c')!
-	const indexD = pool.stringToIndex('d')!
+	const indexC = pool.stringToIndex('c') ?? fail()
+	const indexD = pool.stringToIndex('d') ?? fail()
 
 	// Check that 'a' and 'b' are not in the index
 	assertEquals(pool.stringToIndex('a'), null)
