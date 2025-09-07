@@ -23,12 +23,6 @@ const terminal = document.getElementById('terminal') ?? assertNonNull()
 
 const ctx = await IDBContext.new()
 
-try {
-	await ctx.executeQuery('RESTORE')
-} catch {
-	// The database is loaded for the first time
-}
-
 form.addEventListener('submit', (e) => {
 	const cloned = assertClass(
 		DocumentFragment,
