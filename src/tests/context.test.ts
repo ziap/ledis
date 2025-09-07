@@ -85,13 +85,47 @@ Deno.test('executeQuery - indirectly tests tokenizer error handling', async () =
 	})
 })
 
+Deno.test('executeQuery - handles too many arguments', async () => {
+	const ctx = new TestContext()
+
+	// Setup a key for commands that need one
+	await ctx.executeQuery('SET mykey myvalue')
+	await ctx.executeQuery('RPUSH mylist myvalue')
+	await ctx.executeQuery('SADD myset myvalue')
+
+	const commands = [
+		'SET mykey myvalue extra',
+		'GET mykey extra',
+		'RPOP mylist extra',
+		'LRANGE mylist 0 1 extra',
+		'SMEMBERS myset extra',
+		'KEYS extra',
+		'DEL mykey extra',
+		'EXPIRE mykey 10 extra',
+		'TTL mykey extra',
+		'SAVE extra',
+		'RESTORE extra',
+	]
+
+	for (const query of commands) {
+		const result = await ctx.executeQuery(query)
+		assertEquals(result, {
+			kind: 'error',
+			message: 'Too many arguments provided',
+		})
+	}
+})
+
 // Test suite for the main executeQuery method
 Deno.test('executeQuery - basic error handling', async () => {
 	const ctx = new TestContext()
 
 	// Empty query
 	let result = await ctx.executeQuery('')
-	assertEquals(result, { kind: 'error', message: 'Empty query' })
+	assertEquals(result, {
+		kind: 'error',
+		message: "Parameter 'command' not provided",
+	})
 
 	// Unsupported command
 	result = await ctx.executeQuery('NONEXISTENT_COMMAND arg1')
