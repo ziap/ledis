@@ -68,7 +68,12 @@ form.addEventListener('submit', (e) => {
 
 							const elem = valueCloned.querySelector('.result-item') ??
 								assertNonNull()
-							elem.textContent = item
+
+							if (item !== '') {
+								elem.textContent = item
+							} else {
+								elem.remove()
+							}
 							ol.appendChild(valueCloned)
 						}
 						body.appendChild(ol)
