@@ -5,8 +5,8 @@ export default class StringPool {
 	private freeIndices = NumberList.empty()
 
 	constructor(
-		readonly values: string[] = [],
-		private refcount: NumberList = NumberList.empty(),
+		readonly values = new Array<string>(),
+		private refcount = NumberList.empty(),
 	) {
 		if (values.length !== refcount.len) {
 			throw new Error('Length mismatch between values and refcount')

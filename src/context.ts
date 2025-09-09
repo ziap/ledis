@@ -1,7 +1,7 @@
 import KVStore from './kvstore.ts'
 
 function tokenize(input: string): string[] {
-	const tokens: string[] = []
+	const tokens = new Array<string>()
 	let currentToken = ''
 	let quoteOpen = false
 	let escaping = false
