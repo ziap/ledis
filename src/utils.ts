@@ -3,7 +3,7 @@ export function assertNever(_: never): never {
 }
 
 export function assertClass<T>(
-	cls: { new (...args: unknown[]): T },
+	cls: { new (...args: readonly unknown[]): T },
 	instance: unknown,
 ): T {
 	if (instance instanceof cls) {

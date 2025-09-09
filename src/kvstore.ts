@@ -256,7 +256,7 @@ export default class KVStore {
 		throw new Error('Key holds a value that is not a string')
 	}
 
-	pushArray(key: string, values: string[]): void {
+	pushArray(key: string, values: Iterable<string>): void {
 		this.clearExpired()
 		const entry = this.addEntry(key)
 		const value = entry.value
@@ -327,7 +327,7 @@ export default class KVStore {
 		}
 	}
 
-	addSet(key: string, values: string[]): void {
+	addSet(key: string, values: Iterable<string>): void {
 		this.clearExpired()
 		const entry = this.addEntry(key)
 		const value = entry.value
@@ -352,7 +352,7 @@ export default class KVStore {
 		}
 	}
 
-	removeSet(key: string, values: string[]): void {
+	removeSet(key: string, values: Iterable<string>): void {
 		this.clearExpired()
 		const entry = this.getEntry(key)
 		const value = entry.value
@@ -371,7 +371,7 @@ export default class KVStore {
 		throw new Error('Key holds a value that is not a set')
 	}
 
-	private itemsToStrings(items: Uint32Array): string[] {
+	private itemsToStrings(items: Readonly<Uint32Array>): string[] {
 		const result = new Array<string>(items.length)
 
 		for (let i = 0; i < items.length; ++i) {
@@ -395,7 +395,7 @@ export default class KVStore {
 		throw new Error('Key holds a value that is not a set')
 	}
 
-	private collectSets(keys: string[]): BitSet[] {
+	private collectSets(keys: ArrayLike<string>): BitSet[] {
 		const sets = new Array<BitSet>(keys.length)
 
 		for (let i = 0; i < keys.length; ++i) {
@@ -413,14 +413,14 @@ export default class KVStore {
 		return sets
 	}
 
-	unionSet(keys: string[]): string[] {
+	unionSet(keys: ArrayLike<string>): string[] {
 		this.clearExpired()
 		const sets = this.collectSets(keys)
 		const items = BitSet.union(sets).items()
 		return this.itemsToStrings(items)
 	}
 
-	intersectSet(keys: string[]): string[] {
+	intersectSet(keys: ArrayLike<string>): string[] {
 		this.clearExpired()
 		const sets = this.collectSets(keys)
 		const items = BitSet.intersect(sets).items()

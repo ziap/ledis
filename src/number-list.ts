@@ -20,7 +20,7 @@ export default class NumberList {
 		return list
 	}
 
-	static fromArray(values: number[]): NumberList {
+	static fromArray(values: ArrayLike<number>): NumberList {
 		const list = NumberList.withCapacity(values.length)
 		list.data.set(values)
 		list.size = values.length

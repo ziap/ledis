@@ -50,7 +50,7 @@ function tokenize(input: string): string[] {
 class ParamStream {
 	private iterator: number = 0
 
-	constructor(private tokens: string[]) {}
+	constructor(private readonly tokens: string[]) {}
 
 	next(name: string): string {
 		if (this.iterator >= this.tokens.length) {
